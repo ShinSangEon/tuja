@@ -1,0 +1,56 @@
+# 보도자료 소스 등록부.
+# ⚠ URL·선택자는 각 사이트를 열어 확인 후 채운다. 아래는 형식 예시이며 enabled: false 로 꺼져 있다.
+# 등록 우선순위(공장 밀집 순): 경남 → 경북 → 충남 → 경기 → 울산 → 부산 → 충북 → 전남 → 전북 → 대구 → 인천 → 산업부
+#
+# 확인 방법:
+#   1) 사이트 보도자료 목록 URL을 브라우저에서 열고 "RSS" 링크가 있으면 type: rss 로.
+#   2) 없으면 F12 → 목록 한 줄(tr/li)을 우클릭 → Copy selector 로 item_selector 를, 제목 링크는 link_selector 로.
+#   3) python -c "from sources.press import fetch; from datetime import date; print(fetch(date(2026,10,1))[:3])" 로 테스트.
+
+sources:
+  - key: motie
+    name: 산업통상자원부
+    type: rss
+    enabled: false
+    url: "https://www.motie.go.kr/..."   # 보도자료 RSS URL 확인 후 입력
+    tier: 1
+    include: [투자, 공장, 산단, 특구, 보조금, 협약]
+
+  - key: gyeongnam
+    name: 경상남도
+    type: html
+    enabled: false
+    url: "https://www.gyeongnam.go.kr/..."   # 보도자료 목록 URL
+    item_selector: "table.board tbody tr"
+    link_selector: "td.title a"
+    date_selector: "td.date"
+    body_selector: ".board_view .content"
+    tier: 1
+
+  - key: gyeongbuk
+    name: 경상북도
+    type: html
+    enabled: false
+    url: "https://www.gb.go.kr/..."
+    item_selector: "ul.board_list li"
+    link_selector: "a"
+    date_selector: ".date"
+    tier: 1
+
+  - key: changwon
+    name: 창원특례시
+    type: html
+    enabled: false
+    url: "https://www.changwon.go.kr/..."
+    item_selector: "table tbody tr"
+    link_selector: "td.subject a"
+    date_selector: "td.date"
+    tier: 1
+
+  # 구글 뉴스 RSS — 네이버 API 유료 전환 시 대체용. 키워드를 URL에 인코딩해서 넣는다. (tier 3)
+  - key: gnews_expansion
+    name: GoogleNews
+    type: rss
+    enabled: false
+    url: "https://news.google.com/rss/search?q=%EA%B3%B5%EC%9E%A5+%EC%A6%9D%EC%84%A4&hl=ko&gl=KR&ceid=KR:ko"
+    tier: 3
