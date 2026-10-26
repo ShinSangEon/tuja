@@ -22,7 +22,7 @@ collector/ (Python)
   ├─ extract.py            사전필터 + Claude 지시문(INSTRUCTIONS) + extracted.json 검증
   ├─ validate.py           교차검증·중복 병합·신뢰등급(A/B/C)·규모(S/M/L)·관련도 점수
   └─ geocode.py            카카오 로컬 API + 산단 마스터 + 시군구 폴백
-db/schema.sql              Neon 에 1회 실행
+db/schema.sql              테이블 정의 — 수집기가 첫 접속 때 자동 실행
 web/ (Next.js 16, JS)      Vercel 에 Root Directory=web 으로 배포
   ├─ app/page.js           대시보드 (카카오맵·필터·상세 패널)
   ├─ app/api/signals/      Neon v_signals_map 조회 (pg), DB 없으면 public/sample-signals.json
@@ -34,7 +34,7 @@ docs/                      설계·스키마·검증규칙·비용·운영·매�
 
 ## 설치 순서 (반나절)
 
-1. **계정 3개** (GENEQ 구글 계정으로): neon.tech 가입 → 프로젝트 생성 → SQL Editor 에 `db/schema.sql` / vercel.com 가입 / developers.kakao.com 앱 생성·비즈 전환·카카오맵 활성화.
+1. **계정 3개** (GENEQ 명의): neon.tech 프로젝트 생성 → Connect 에서 연결 문자열 복사 (테이블은 첫 `collect` 때 자동 생성) / vercel.com / developers.kakao.com 앱 생성·비즈 전환·카카오맵 활성화.
 2. **대시보드**: 이 저장소를 GitHub 에 올리고 Vercel 에서 Root Directory=`web` 으로 배포. 환경변수 `NEXT_PUBLIC_KAKAO_MAP_KEY`, `DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`. 배포 도메인을 카카오 앱 Web 플랫폼에 등록.
    → 이 시점에 **샘플 13건**으로 뜬다 (대표이사 시연 가능). 로컬은 `cd web && npm install && npm run dev`.
 3. **collector**: `cd collector && cp .env.example .env` 에 DART·네이버·카카오 REST·Neon URL → `pip install -r requirements.txt`.

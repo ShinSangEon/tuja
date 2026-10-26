@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 
 import psycopg
 from psycopg.rows import dict_row
@@ -21,9 +23,24 @@ SIGNAL_COLS = [
 ]
 
 
+SCHEMA_SQL = Path(__file__).parent.parent / "db" / "schema.sql"
+
+
+def ensure_schema(c) -> bool:
+    """signals 테이블이 없으면 db/schema.sql 을 실행해 테이블·뷰를 만든다. (첫 접속 때 1회)"""
+    exists = c.execute("select to_regclass('public.signals') as t").fetchone()["t"]
+    if exists:
+        return False
+    c.execute(SCHEMA_SQL.read_text(encoding="utf-8"))
+    c.commit()
+    return True
+
+
 @contextmanager
 def conn():
     with psycopg.connect(DATABASE_URL, row_factory=dict_row) as c:
+        if ensure_schema(c):
+            logging.getLogger("db").info("빈 DB → 테이블 자동 생성 완료 (db/schema.sql)")
         yield c
         c.commit()
 
