@@ -1,7 +1,10 @@
 """네이버 뉴스 검색 API — 키워드 묶음으로 증설·신설·설비투자 기사 수집.
 
-개발자센터(developers.naver.com) 기준 앱당 일 25,000건 무료.
-NAVER API HUB(ncloud)로 이관 시 엔드포인트/헤더만 바뀌므로 NAVER_BASE 환경변수로 교체 가능.
+2026년 기준 검색 API 는 개발자센터(developers.naver.com)에서 종료되고 **NAVER API Hub(네이버 클라우드 플랫폼)** 로 이관됨.
+  - 엔드포인트: https://naverapihub.apigw.ntruss.com/search/v1/news  (GET, 일 25,000건)
+  - 헤더: X-NCP-APIGW-API-KEY-ID (Client ID) / X-NCP-APIGW-API-KEY (Client Secret)
+  - 응답 형식(items[].title/originallink/link/description/pubDate)은 예전과 동일
+예전 개발자센터 키가 아직 살아 있으면 .env 에 NAVER_LEGACY=1 로 구형 엔드포인트 사용.
 본문은 API가 안 주므로 링크를 열어 본문을 가져온다(기사 전문은 추출에만 쓰고 90일 후 purge).
 """
 from __future__ import annotations
@@ -19,7 +22,14 @@ from config import (NAVER_CLIENT_ID, NAVER_CLIENT_SECRET, NAVER_MAX_PER_KEYWORD,
                     TIER2_PRESS)
 
 log = logging.getLogger(__name__)
-NAVER_BASE = "https://openapi.naver.com/v1/search/news.json"
+import os
+NAVER_LEGACY = os.getenv("NAVER_LEGACY", "") == "1"
+NAVER_BASE = "https://openapi.naver.com/v1/search/news.json" if NAVER_LEGACY else "https://naverapihub.apigw.ntruss.com/search/v1/news"
+NAVER_HEADERS = (
+    {"X-Naver-Client-Id": NAVER_CLIENT_ID, "X-Naver-Client-Secret": NAVER_CLIENT_SECRET}
+    if NAVER_LEGACY
+    else {"X-NCP-APIGW-API-KEY-ID": NAVER_CLIENT_ID, "X-NCP-APIGW-API-KEY": NAVER_CLIENT_SECRET}
+)
 UA = {"User-Agent": "Mozilla/5.0 (compatible; GENEQ-InvestRadar/0.1)"}
 _TAG = re.compile(r"<[^>]+>")
 
@@ -31,8 +41,8 @@ def _clean(s: str) -> str:
 def search(keyword: str, display: int = 30) -> list[dict]:
     r = requests.get(
         NAVER_BASE,
-        headers={"X-Naver-Client-Id": NAVER_CLIENT_ID, "X-Naver-Client-Secret": NAVER_CLIENT_SECRET},
-        params={"query": keyword, "display": min(display, 100), "sort": "date"},
+        headers=NAVER_HEADERS,
+        params={"query": keyword, "display": min(display, 100), "sort": "date", "format": "json"},
         timeout=20,
     )
     r.raise_for_status()

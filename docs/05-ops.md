@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | 1 | opendart.fss.or.kr → 인증키 신청 | OpenDART API 키 (40자) | 즉시 (사업자는 1~2일) | `DART_API_KEY` |
 | 2 | developers.kakao.com (**GENEQ 계정**) → 앱 생성 → 비즈 앱 전환(사업자등록번호) → 카카오맵 활성화 | JavaScript 키 (지도), REST API 키 (지오코딩). 플랫폼 Web 에 Vercel 배포 도메인 + `http://localhost:3000` 등록 | 심사 1~3일 | `NEXT_PUBLIC_KAKAO_MAP_KEY`, `KAKAO_REST_KEY` |
-| 3 | developers.naver.com (또는 ncloud NAVER API HUB) → 앱 등록 → 검색 API | Client ID / Secret | 즉시 | `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` |
+| 3 | ncloud.com (네이버 클라우드 플랫폼, GENEQ 계정) → 콘솔 → Application Services → **NAVER API HUB** → Application 등록 → API 선택에서 **검색 > 뉴스** 체크 | 인증 정보의 Client ID / Client Secret (개발자센터 검색 API 는 종료됨) | 즉시 | `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` |
 | 4 | neon.tech (**GENEQ 구글 계정**) → 프로젝트 → Connect → Pooled connection 문자열 복사 | 연결 문자열 (`?sslmode=require`). 테이블은 수집기가 첫 접속 때 자동 생성 | 2분 | `DATABASE_URL` (collector `.env` 와 Vercel 둘 다) |
 | 5 | data.go.kr → 회원가입 → "건축허가 정보" 활용신청 | 서비스키 (Phase 1) | 즉시~1일 | `DATA_GO_KR_KEY` |
 
