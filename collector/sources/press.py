@@ -18,6 +18,8 @@ import requests
 import yaml
 from bs4 import BeautifulSoup
 
+from config import TIER2_PRESS
+
 log = logging.getLogger(__name__)
 UA = {"User-Agent": "Mozilla/5.0 (compatible; GENEQ-InvestRadar/0.1)"}
 DEFAULT_INCLUDE = ["투자협약", "투자 협약", "증설", "신설", "공장", "착공", "준공", "입주", "MOU", "투자유치"]
@@ -63,14 +65,20 @@ def _from_rss(src: dict, since: date) -> list[dict]:
         link = e.get("link")
         if not link:
             continue
+        name, tier, body = src["name"], src.get("tier", 1), None
+        if src.get("aggregator"):  # 구글 뉴스 RSS: 실제 매체명으로 등급 매기고, 본문은 피드 요약만 (링크가 JS 리다이렉트)
+            name = (getattr(e, "source", None) or {}).get("title") or name
+            title = re.sub(r"\s*-\s*[^-]+$", "", title)  # 제목 끝 " - 매체명" 제거
+            tier = 2 if name in TIER2_PRESS else 3
+            body = re.sub(r"<[^>]+>", " ", e.get("summary") or "")
         out.append(
             {
-                "source_type": "press",
-                "source_name": src["name"],
-                "source_tier": src.get("tier", 1),
+                "source_type": "press" if not src.get("aggregator") else "naver_news",
+                "source_name": name,
+                "source_tier": tier,
                 "url": link,
                 "title": title,
-                "body": _body(link, src.get("body_selector")) or (e.get("summary") or ""),
+                "body": body if body is not None else (_body(link, src.get("body_selector")) or (e.get("summary") or "")),
                 "published_at": pub,
                 "meta": {"source_key": src.get("key")},
             }

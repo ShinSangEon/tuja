@@ -47,10 +47,60 @@ sources:
     date_selector: "td.date"
     tier: 1
 
-  # 구글 뉴스 RSS — 네이버 API 유료 전환 시 대체용. 키워드를 URL에 인코딩해서 넣는다. (tier 3)
-  - key: gnews_expansion
+  # ── 구글 뉴스 RSS (계정·키 불필요). 네이버 API 대신 기본 뉴스 소스. 매체명은 피드에서 뽑아 tier 매김 ──
+  - key: gnews_1
     name: GoogleNews
     type: rss
-    enabled: false
-    url: "https://news.google.com/rss/search?q=%EA%B3%B5%EC%9E%A5+%EC%A6%9D%EC%84%A4&hl=ko&gl=KR&ceid=KR:ko"
-    tier: 3
+    aggregator: true
+    enabled: true
+    url: "https://news.google.com/rss/search?q=%EA%B3%B5%EC%9E%A5%20%EC%A6%9D%EC%84%A4+when:3d&hl=ko&gl=KR&ceid=KR:ko"
+    include: [증설, 신설, 신공장, 착공, 준공, 투자, 라인, 공장, 입주, 건립]
+  - key: gnews_2
+    name: GoogleNews
+    type: rss
+    aggregator: true
+    enabled: true
+    url: "https://news.google.com/rss/search?q=%EA%B3%B5%EC%9E%A5%20%EC%8B%A0%EC%84%A4+when:3d&hl=ko&gl=KR&ceid=KR:ko"
+    include: [증설, 신설, 신공장, 착공, 준공, 투자, 라인, 공장, 입주, 건립]
+  - key: gnews_3
+    name: GoogleNews
+    type: rss
+    aggregator: true
+    enabled: true
+    url: "https://news.google.com/rss/search?q=%EC%8B%A0%EA%B3%B5%EC%9E%A5%20%EC%B0%A9%EA%B3%B5+when:3d&hl=ko&gl=KR&ceid=KR:ko"
+    include: [증설, 신설, 신공장, 착공, 준공, 투자, 라인, 공장, 입주, 건립]
+  - key: gnews_4
+    name: GoogleNews
+    type: rss
+    aggregator: true
+    enabled: true
+    url: "https://news.google.com/rss/search?q=%EC%83%9D%EC%82%B0%EB%9D%BC%EC%9D%B8%20%EC%A6%9D%EC%84%A4+when:3d&hl=ko&gl=KR&ceid=KR:ko"
+    include: [증설, 신설, 신공장, 착공, 준공, 투자, 라인, 공장, 입주, 건립]
+  - key: gnews_5
+    name: GoogleNews
+    type: rss
+    aggregator: true
+    enabled: true
+    url: "https://news.google.com/rss/search?q=%EC%84%A4%EB%B9%84%ED%88%AC%EC%9E%90%20%EA%B3%B5%EC%9E%A5+when:3d&hl=ko&gl=KR&ceid=KR:ko"
+    include: [증설, 신설, 신공장, 착공, 준공, 투자, 라인, 공장, 입주, 건립]
+  - key: gnews_6
+    name: GoogleNews
+    type: rss
+    aggregator: true
+    enabled: true
+    url: "https://news.google.com/rss/search?q=%ED%88%AC%EC%9E%90%ED%98%91%EC%95%BD%20%EA%B3%B5%EC%9E%A5%20%EC%8B%A0%EC%84%A4+when:3d&hl=ko&gl=KR&ceid=KR:ko"
+    include: [증설, 신설, 신공장, 착공, 준공, 투자, 라인, 공장, 입주, 건립]
+  - key: gnews_7
+    name: GoogleNews
+    type: rss
+    aggregator: true
+    enabled: true
+    url: "https://news.google.com/rss/search?q=%EC%A0%9C2%EA%B3%B5%EC%9E%A5%20%EA%B1%B4%EB%A6%BD+when:3d&hl=ko&gl=KR&ceid=KR:ko"
+    include: [증설, 신설, 신공장, 착공, 준공, 투자, 라인, 공장, 입주, 건립]
+  - key: gnews_8
+    name: GoogleNews
+    type: rss
+    aggregator: true
+    enabled: true
+    url: "https://news.google.com/rss/search?q=%EC%8A%A4%EB%A7%88%ED%8A%B8%EA%B3%B5%EC%9E%A5%20%EC%A0%84%ED%99%98%20%ED%88%AC%EC%9E%90+when:3d&hl=ko&gl=KR&ceid=KR:ko"
+    include: [증설, 신설, 신공장, 착공, 준공, 투자, 라인, 공장, 입주, 건립]
