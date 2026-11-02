@@ -1,6 +1,7 @@
 """OpenDART — 「신규시설투자등」 공시 수집.
 
-흐름: list.json(주요사항보고 B) → report_nm 에 '신규시설투자' 포함 건 → document.xml(zip) → 텍스트 추출.
+흐름: list.json 을 거래소공시(I: 신규시설투자등) + 주요사항보고(B: 유형자산양수·비유동자산취득) 로 조회
+      → report_nm 키워드 필터 → document.xml(zip) → 텍스트 추출.
 무료, 일 10,000건. https://opendart.fss.or.kr
 """
 from __future__ import annotations
@@ -17,17 +18,21 @@ from config import DART_API_KEY
 
 log = logging.getLogger(__name__)
 BASE = "https://opendart.fss.or.kr/api"
-KEYWORDS = ("신규시설투자", "시설투자", "유형자산 취득")  # report_nm 필터
+# (공시유형, report_nm 키워드)
+QUERIES = (
+    ("I", ("신규시설투자",)),                      # 거래소공시: 신규시설투자등
+    ("B", ("유형자산양수", "비유동자산취득")),      # 주요사항보고: 공장·부지·설비 매입
+)
 
 
-def _list_page(bgn: str, end: str, page: int) -> dict:
+def _list_page(bgn: str, end: str, page: int, pblntf_ty: str = "I") -> dict:
     r = requests.get(
         f"{BASE}/list.json",
         params={
             "crtfc_key": DART_API_KEY,
             "bgn_de": bgn,
             "end_de": end,
-            "pblntf_ty": "B",      # 주요사항보고
+            "pblntf_ty": pblntf_ty,
             "page_no": page,
             "page_count": 100,
             "last_reprt_at": "Y",  # 정정 시 최종본만
@@ -42,20 +47,25 @@ def list_disclosures(since: date, until: date | None = None) -> list[dict]:
     """기간 내 신규시설투자 관련 공시 메타 목록."""
     until = until or date.today()
     bgn, end = since.strftime("%Y%m%d"), until.strftime("%Y%m%d")
-    out, page = [], 1
-    while True:
-        data = _list_page(bgn, end, page)
-        status = data.get("status")
-        if status == "013":  # 조회 결과 없음
-            break
-        if status != "000":
-            raise RuntimeError(f"DART list error {status}: {data.get('message')}")
-        for item in data.get("list", []):
-            if any(k in item["report_nm"] for k in KEYWORDS):
-                out.append(item)
-        if page >= int(data.get("total_page", 1)):
-            break
-        page += 1
+    out, seen = [], set()
+    for ty, keywords in QUERIES:
+        page = 1
+        while True:
+            data = _list_page(bgn, end, page, ty)
+            status = data.get("status")
+            if status == "013":  # 조회 결과 없음
+                break
+            if status != "000":
+                raise RuntimeError(f"DART list error {status}: {data.get('message')}")
+            for item in data.get("list", []):
+                if item["rcept_no"] in seen:
+                    continue
+                if any(k in item["report_nm"] for k in keywords):
+                    seen.add(item["rcept_no"])
+                    out.append(item)
+            if page >= int(data.get("total_page", 1)):
+                break
+            page += 1
     log.info("DART: %d disclosures matched %s~%s", len(out), bgn, end)
     return out
 
