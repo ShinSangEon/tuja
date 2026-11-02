@@ -197,7 +197,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("collect"); p.add_argument("--since", default=(date.today() - timedelta(days=3)).isoformat())
-    p.add_argument("--sources", default="dart,press")  # naver_news 는 키 있을 때만 추가; p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_collect)
+    p.add_argument("--sources", default="dart,press"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_collect)
     p = sub.add_parser("ingest"); p.add_argument("file"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_ingest)
     p = sub.add_parser("export"); p.add_argument("file"); p.set_defaults(fn=cmd_export)
     p = sub.add_parser("status"); p.set_defaults(fn=cmd_status)
