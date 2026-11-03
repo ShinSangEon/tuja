@@ -89,8 +89,12 @@ def for_company(c, company_norm: str, corp_name: str | None = None) -> list[dict
 
 
 def match_for_signal(c, sig: dict) -> dict | None:
-    """신호와 같은 회사 공장 중 같은 산단 > 같은 시군구 > 같은 시도 순으로 하나."""
-    rows = for_company(c, sig["company_norm"])
+    """신호와 같은 회사 공장 중 같은 산단 > 같은 시군구 > 같은 시도 순으로 하나. corp_code 가 있으면 DART 정식 상호로도 찾는다."""
+    corp_name = None
+    if sig.get("corp_code"):
+        r = c.execute("select corp_name from corp_codes where corp_code = %s", (sig["corp_code"],)).fetchone()
+        corp_name = r["corp_name"] if r else None
+    rows = for_company(c, sig["company_norm"], corp_name)
     if not rows:
         return None
     cxn = norm_complex(sig.get("industrial_complex"))

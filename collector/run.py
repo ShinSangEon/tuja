@@ -183,6 +183,10 @@ def cmd_rebuild(a):
         known = set(cache)
         db.wipe_signals(c)
         for s in merged:
+            if not s.get("corp_code"):
+                r = c.execute("select corp_code from corp_codes where name_norm = %s", (s["company_norm"],)).fetchone()
+                if r:
+                    s["corp_code"] = r["corp_code"]
             db.upsert_signal(c, geocode_with_factories(c, s, complexes, regions, cache))
         db.save_geocode_cache(c, cache, known)
         log.info("rebuild: %d extractions → %d candidates → %d signals", len(cands), len(cands), len(merged))
