@@ -2,7 +2,7 @@
 
 import { SIDO_LIST, SIZE_SHORT, STAGE_LABEL, STAGE_ORDER, sidoName } from "@/lib/format";
 
-export const DEFAULT_FILTERS = { grades: ["A", "B"], sizes: [], stages: [], sidos: [], minScore: 0, q: "" };
+export const DEFAULT_FILTERS = { grades: ["A", "B"], sizes: ["L", "M", "U"], stages: [], sidos: [], minScore: 0, q: "" };
 
 function toggle(arr, v) {
   return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
