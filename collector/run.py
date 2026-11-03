@@ -4,6 +4,7 @@
         ... Claude 가 out/pending.md 를 읽고 out/extracted.json 작성 ...
   python run.py ingest out/extracted.json       # 검증·병합·지오코딩 → DB (DB 없으면 out/signals.json)
 
+  python run.py rebuild                         # 규칙 수정 후 extractions 전체 재병합 (signals 초기화)
   python run.py export web/public/sample-signals.json   # DB → JSON (대시보드 샘플/백업)
   python run.py load-complexes 산단.csv         # 산단 마스터 (name, sido, sigungu, lat, lng)
   python run.py refresh-corpcodes               # DART 고유번호 → company_aliases
@@ -103,8 +104,8 @@ def cmd_ingest(a):
             known = set(cache)
             n_new = n_upd = 0
             for s in merged:
-                if s.get("_id") and s.get("lat") and s.get("source_count") == len(s["_sources"]):
-                    continue
+                if s.get("_id") and s.get("lat") and s.get("_orig_source_count") == len(s["_sources"]):
+                    continue  # 출처 추가 없음 → 변화 없음
                 if not s.get("lat") or s.get("geocode_status") in (None, "pending", "unlocated"):
                     s = geocode.geocode_signal(s, complexes, regions, cache)
                 db.upsert_signal(c, s)
@@ -137,6 +138,26 @@ def cmd_ingest(a):
             s["sources"] = [{"title": None, "url": x.get("url"), "source": x.get("source_name"), "tier": x.get("tier"), "published_at": None} for x in s["_sources"]]
         prev_path.write_text(json.dumps(sigs, ensure_ascii=False, default=str, indent=1), encoding="utf-8")
         log.info("ingest (file mode): %d results → %d candidates → %d signals → %s", len(results), len(cands), len(sigs), prev_path)
+
+
+# ── rebuild: 추출 결과 전체를 다시 병합 (규칙·버그 수정 후) ──
+def cmd_rebuild(a):
+    """signals 를 비우고 extractions 전체로 다시 만든다. 수동 입력(owner, manual_grade 등)은 사라진다."""
+    with db.conn() as c:
+        aliases = db.load_aliases(c)
+        cands = []
+        for payload, d in db.load_all_relevant_extractions(c):
+            cand = validate.candidate_from_extraction(payload, d, aliases)
+            if cand:
+                cands.append(cand)
+        merged = validate.consolidate(cands)
+        complexes, regions, cache = db.load_complexes(c), db.load_regions(c), db.load_geocode_cache(c)
+        known = set(cache)
+        db.wipe_signals(c)
+        for s in merged:
+            db.upsert_signal(c, geocode.geocode_signal(s, complexes, regions, cache))
+        db.save_geocode_cache(c, cache, known)
+        log.info("rebuild: %d extractions → %d candidates → %d signals", len(cands), len(cands), len(merged))
 
 
 # ── 유틸 ────────────────────────────────────────────────
@@ -199,6 +220,7 @@ def main():
     p = sub.add_parser("collect"); p.add_argument("--since", default=(date.today() - timedelta(days=3)).isoformat())
     p.add_argument("--sources", default="dart,press"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_collect)
     p = sub.add_parser("ingest"); p.add_argument("file"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_ingest)
+    p = sub.add_parser("rebuild"); p.set_defaults(fn=cmd_rebuild)
     p = sub.add_parser("export"); p.add_argument("file"); p.set_defaults(fn=cmd_export)
     p = sub.add_parser("status"); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("load-complexes"); p.add_argument("file"); p.set_defaults(fn=cmd_load_complexes)

@@ -119,7 +119,22 @@ def load_existing_signals(c) -> list[dict]:
         for s in r["_sources"]:
             s["document_id"] = str(s["document_id"])
         r["_id"] = str(r["_id"])
+        r["_orig_source_count"] = len(r["_sources"])
     return rows
+
+
+def load_all_relevant_extractions(c) -> list[tuple[dict, dict]]:
+    """rebuild 용: (payload, document) 쌍 전부."""
+    rows = c.execute("""select e.payload, d.* from extractions e join raw_documents d on d.id = e.document_id
+                        where e.is_relevant and e.payload is not null""").fetchall()
+    out = []
+    for r in rows:
+        payload = r.pop("payload"); r["id"] = str(r["id"]); out.append((payload, r))
+    return out
+
+
+def wipe_signals(c):
+    c.execute("delete from signal_sources"); c.execute("delete from signals")
 
 
 def upsert_signal(c, sig: dict) -> str:

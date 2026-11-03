@@ -94,8 +94,8 @@ def is_same_project(x: dict, y: dict) -> bool:
     )
     if not same_company:
         return False
-    if x.get("sido") != y.get("sido"):
-        return False
+    if x.get("sido") and y.get("sido") and x["sido"] != y["sido"]:
+        return False  # 한쪽이 미상이면 같은 건으로 볼 수 있음 (R4)
     if x.get("sigungu") and y.get("sigungu") and x["sigungu"] != y["sigungu"]:
         return False
     if not _same_type(x["event_type"], y["event_type"]):
@@ -174,8 +174,8 @@ def merge(base: dict, new: dict) -> dict:
     # 단계: 더 진행된 쪽
     if STAGE_ORDER.index(new["stage"]) > STAGE_ORDER.index(base["stage"]):
         out["stage"] = new["stage"]
-    # 지역: precision 높은 쪽
-    if _PREC.get(new["location_precision"], 0) > _PREC.get(base["location_precision"], 0):
+    # 지역: precision 높은 쪽 (기존이 미상이면 무조건 새 값)
+    if not base.get("sido") or _PREC.get(new["location_precision"], 0) > _PREC.get(base["location_precision"], 0):
         for k in ("sido", "sigungu", "industrial_complex", "address_raw", "location_precision"):
             out[k] = new[k]
     # 요약: tier 높은 쪽, 같으면 최신
