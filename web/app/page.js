@@ -54,6 +54,7 @@ export default function Page() {
         <p className="brief">
           조건에 맞는 <b>{data?.count ?? 0}</b>건 중 즉시 검토 <b className="hot">{hot}</b>건,
           투자 합계 <b>{bigSum ? `${Math.round(bigSum / 1e8).toLocaleString()}억` : "–"}</b>
+          <a className="brief-link" href="/report">주간 보고 보기</a>
           <span className="brief-meta">
             {data?.source === "sample" ? "샘플 데이터" : data?.updated_at ? `마지막 업데이트 ${fmtDate(data.updated_at)}` : ""}
             {loading ? " · 불러오는 중" : ""}

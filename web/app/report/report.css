@@ -1,0 +1,45 @@
+/* 주간 보고 — 인쇄 전제. 종이색 바탕, 먹색 글자, 강조는 빨강 하나. */
+.rpt-page { --ink: #16211F; --ink-2: #4A5552; --ink-3: #8E969B; --line: #DADFDA; --line-2: #EDF0ED; --hot: #D8321F; --watch: #E09A12; --paper: #F6F7F4;
+  max-width: 1080px; margin: 0 auto; padding: 28px 32px 48px; color: var(--ink); font-size: 13.5px; line-height: 1.5; font-feature-settings: "tnum"; background: #fff; }
+.rpt-page h1 { font-size: 24px; margin: 2px 0 4px; letter-spacing: -0.02em; }
+.rpt-page h2 { font-size: 16px; margin: 26px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--ink); }
+.rpt-page h2 small { font-weight: 500; color: var(--ink-3); font-size: 12.5px; margin-left: 8px; }
+.rpt-page small { color: var(--ink-3); font-size: 11.5px; }
+.rpt-page .muted { color: var(--ink-3); } .rpt-page .small { font-size: 12px; }
+.rpt-page .hot { color: var(--hot); }
+.rpt-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+.rpt-kicker { font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+.rpt-meta { color: var(--ink-3); font-size: 12.5px; }
+.rpt-actions { display: flex; gap: 12px; align-items: center; font-size: 12.5px; white-space: nowrap; }
+.rpt-actions a { color: var(--ink-2); }
+.print-hint { color: var(--ink-3); }
+.rpt-lead { margin-top: 18px; padding: 14px 18px; background: var(--paper); border-radius: 6px; font-size: 15px; line-height: 1.65; }
+.rpt-lead p { margin: 0; } .rpt-lead b { font-size: 17px; }
+.rpt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rpt-table th { text-align: left; font-weight: 700; color: var(--ink-2); border-bottom: 1px solid var(--ink); padding: 6px 6px; font-size: 11.5px; }
+.rpt-table td { padding: 7px 6px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.rpt-table.compact td { padding: 4px 6px; }
+.rpt-table .num { text-align: right; white-space: nowrap; }
+.rpt-table .need { font-size: 11px; line-height: 1.35; letter-spacing: 1px; color: var(--ink-2); white-space: nowrap; }
+.rpt-table .grade { font-weight: 800; text-align: center; }
+.pri-hot { color: var(--hot); font-weight: 800; } .pri-watch { color: var(--watch); font-weight: 700; } .pri-low { color: var(--ink-3); }
+.rpt-two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.stage-chart { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.stage-row { display: grid; grid-template-columns: 56px 1fr 28px; gap: 8px; align-items: center; font-size: 12.5px; }
+.stage-bar { height: 14px; background: var(--line-2); border-radius: 3px; overflow: hidden; }
+.stage-bar span { display: block; height: 100%; background: var(--ink); }
+.stage-n { text-align: right; font-weight: 700; }
+.rpt-list { list-style: none; margin: 0; padding: 0; }
+.rpt-list li { display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line-2); }
+.pri { flex: none; width: 34px; height: 34px; border-radius: 50%; color: #fff; font-weight: 800; display: grid; place-items: center; font-size: 13px; border: 2px solid var(--ink); }
+.pri.hot { background: var(--hot); } .pri.watch { background: var(--watch); } .pri.low { background: var(--ink-3); }
+.rpt-summary { color: var(--ink-2); font-size: 12.5px; margin-top: 2px; }
+.rpt-foot { margin-top: 30px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 11.5px; }
+.rpt-foot p { margin: 4px 0; }
+@media print {
+  .rpt-page { padding: 0; max-width: none; font-size: 11.5px; }
+  .rpt-actions { display: none; }
+  .rpt-page h2 { break-after: avoid; } .rpt-table tr, .rpt-list li { break-inside: avoid; }
+  .rpt-two { break-inside: avoid; }
+}
+@media (max-width: 800px) { .rpt-two { grid-template-columns: 1fr; } .rpt-head { flex-direction: column; } }
