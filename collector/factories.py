@@ -45,7 +45,7 @@ def split_region(addr: str) -> tuple[str | None, str | None]:
         return None, None
     sido = toks[0]
     for k, v in SIDO_MAP.items():
-        if sido.startswith(k) or sido.startswith(v[:2]):
+        if sido == v or sido.startswith(v[:3]) or sido == k or sido == k + "도" or sido == k + "시":
             sido = v
             break
     sigungu = None
@@ -106,7 +106,8 @@ def match_for_signal(c, sig: dict) -> dict | None:
         for r in rows:
             if r["sigungu"] and r["sigungu"][:2] == sig["sigungu"][:2]:
                 return r
-    if sig.get("sido"):
+    # 신공장·이전은 새 자리라서 산단/시군구가 맞을 때만. 증설·설비·개조는 기존 공장에서 일어나므로 같은 시도에 공장이 하나뿐이면 그것.
+    if sig.get("event_type") in ("expansion", "equipment", "retrofit") and sig.get("sido"):
         same = [r for r in rows if r["sido"] == sig["sido"]]
         if len(same) == 1:
             return same[0]
