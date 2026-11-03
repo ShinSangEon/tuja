@@ -99,16 +99,22 @@ def report_text(rcept_no: str) -> str:
     return t
 
 
+def _is_toc(t: str, pos: int) -> bool:
+    """목차 항목은 바로 뒤에 점선(-----)이 온다."""
+    return "----" in t[pos:pos + 160]
+
+
 def _section(t: str, start_pat: str, end_pats: list[str], max_chars: int) -> str:
-    m = re.search(start_pat, t)
+    m = next((m for m in re.finditer(start_pat, t) if not _is_toc(t, m.end())), None)
     if not m:
         return ""
     s = m.start()
     e = len(t)
     for p in end_pats:
-        m2 = re.search(p, t[s + 50:])
-        if m2:
-            e = min(e, s + 50 + m2.start())
+        for m2 in re.finditer(p, t[s + 50:]):
+            if not _is_toc(t, s + 50 + m2.end()):
+                e = min(e, s + 50 + m2.start())
+                break
     return t[s:e][:max_chars].strip()
 
 
