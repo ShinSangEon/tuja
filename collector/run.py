@@ -8,6 +8,7 @@
   python run.py companies                       # 타겟 상장사 회사 카드(DART 재무·종업원·생산설비) 갱신
   python run.py export web/public/sample-signals.json   # DB → JSON (대시보드 샘플/백업)
   python run.py load-complexes 산단.csv         # 산단 마스터 (name, sido, sigungu, lat, lng)
+  python run.py load-factories 등록공장.csv     # 전국 등록공장 현황 CSV (공공데이터포털 15105482, cp949)
   python run.py refresh-corpcodes               # DART 고유번호 → company_aliases
   python run.py purge-bodies                    # 90일 지난 기사 본문 비우기
   python run.py status                          # DB 요약 (등급·규모·지오코딩 분포)
@@ -25,6 +26,7 @@ from pathlib import Path
 import companies
 import db
 import extract
+import factories
 import geocode
 import validate
 from config import DATABASE_URL
@@ -86,6 +88,23 @@ def cmd_collect(a):
     print(f"\n다음 단계: Claude 에게 '{md}' 를 읽고 '{OUT / 'extracted.json'}' 을 작성하게 한 뒤\n  python run.py ingest {OUT / 'extracted.json'}")
 
 
+def geocode_with_factories(c, s: dict, complexes, regions, cache) -> dict:
+    """같은 회사의 등록공장이 같은 산단/시군구에 있으면 그 좌표(precision=factory), 아니면 기존 폴백."""
+    try:
+        f = factories.match_for_signal(c, s)
+    except Exception:  # factories 테이블이 아직 없을 때
+        f = None
+    if f:
+        factories.ensure_geocoded(c, [f], geocode.geocode_address, cache)
+        if f.get("lat"):
+            s = dict(s); s["lat"], s["lng"] = f["lat"], f["lng"]; s["geocode_status"] = "factory"
+            if not s.get("address_raw"):
+                s["address_raw"] = f["address"]
+            s["location_precision"] = "address"
+            return s
+    return geocode.geocode_signal(s, complexes, regions, cache)
+
+
 # ── 2단계: ingest ───────────────────────────────────────
 def cmd_ingest(a):
     results = extract.load_extracted(Path(a.file))
@@ -115,8 +134,8 @@ def cmd_ingest(a):
             for s in merged:
                 if s.get("_id") and s.get("lat") and s.get("_orig_source_count") == len(s["_sources"]):
                     continue  # 출처 추가 없음 → 변화 없음
-                if not s.get("lat") or s.get("geocode_status") in (None, "pending", "unlocated"):
-                    s = geocode.geocode_signal(s, complexes, regions, cache)
+                if not s.get("lat") or s.get("geocode_status") in (None, "pending", "unlocated", "fallback_region", "fallback_complex"):
+                    s = geocode_with_factories(c, s, complexes, regions, cache)
                 db.upsert_signal(c, s)
                 n_new += 0 if s.get("_id") else 1
                 n_upd += 1 if s.get("_id") else 0
@@ -164,7 +183,7 @@ def cmd_rebuild(a):
         known = set(cache)
         db.wipe_signals(c)
         for s in merged:
-            db.upsert_signal(c, geocode.geocode_signal(s, complexes, regions, cache))
+            db.upsert_signal(c, geocode_with_factories(c, s, complexes, regions, cache))
         db.save_geocode_cache(c, cache, known)
         log.info("rebuild: %d extractions → %d candidates → %d signals", len(cands), len(cands), len(merged))
 
@@ -201,6 +220,11 @@ def cmd_status(_a):
             "select count(*) filter (where not extracted) as pending, count(*) as total from raw_documents",
         ]:
             print(q.split(" from ")[0][7:], "→", [dict(r) for r in c.execute(q)])
+
+
+def cmd_load_factories(a):
+    with db.conn() as c:
+        factories.load_csv(c, a.file)
 
 
 def cmd_load_complexes(a):
@@ -258,6 +282,7 @@ def main():
     p = sub.add_parser("export"); p.add_argument("file"); p.set_defaults(fn=cmd_export)
     p = sub.add_parser("status"); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("load-complexes"); p.add_argument("file"); p.set_defaults(fn=cmd_load_complexes)
+    p = sub.add_parser("load-factories"); p.add_argument("file"); p.set_defaults(fn=cmd_load_factories)
     p = sub.add_parser("refresh-corpcodes"); p.add_argument("--csv"); p.set_defaults(fn=cmd_refresh_corpcodes)
     p = sub.add_parser("purge-bodies"); p.set_defaults(fn=cmd_purge_bodies)
     a = ap.parse_args()
