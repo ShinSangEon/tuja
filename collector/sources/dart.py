@@ -143,15 +143,13 @@ def download_corp_codes() -> list[dict]:
     """전체 기업 고유번호 (corpCode.xml zip). company_aliases / 엔티티 매칭용."""
     r = requests.get(f"{BASE}/corpCode.xml", params={"crtfc_key": DART_API_KEY}, timeout=120)
     r.raise_for_status()
+    import xml.etree.ElementTree as ET
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
-        xml = z.read("CORPCODE.xml").decode("utf-8")
+        raw = z.read("CORPCODE.xml")
     rows = []
-    for m in re.finditer(
-        r"<corp_code>(\d+)</corp_code>\s*<corp_name>(.*?)</corp_name>\s*<stock_code>(.*?)</stock_code>",
-        xml,
-        flags=re.S,
-    ):
-        rows.append({"corp_code": m.group(1), "corp_name": m.group(2).strip(), "stock_code": m.group(3).strip()})
+    for el in ET.fromstring(raw).iter("list"):  # corp_eng_name 등 필드가 추가돼도 안전
+        rows.append({"corp_code": (el.findtext("corp_code") or "").strip(), "corp_name": (el.findtext("corp_name") or "").strip(),
+                     "stock_code": (el.findtext("stock_code") or "").strip()})
     return rows
 
 

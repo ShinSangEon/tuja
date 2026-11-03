@@ -204,8 +204,12 @@ def cmd_load_complexes(a):
         log.info("complexes loaded: %d", n)
 
 
-def cmd_refresh_corpcodes(_a):
-    rows = dart.download_corp_codes()
+def cmd_refresh_corpcodes(a):
+    """DART corpCode.xml (30MB, 다운로드 3분+) → corp_codes 테이블. --csv 로 미리 만든 CSV 를 넣을 수도 있다."""
+    if getattr(a, "csv", None):
+        rows = [{"corp_code": r["corp_code"], "corp_name": r["corp_name"], "stock_code": r["stock_code"]} for r in csv.DictReader(open(a.csv, encoding="utf-8"))]
+    else:
+        rows = dart.download_corp_codes()
     listed = [(validate.normalize_company(r["corp_name"]), r["corp_name"], r["corp_code"], r["stock_code"]) for r in rows if r["stock_code"]]
     log.info("corp codes: %d total, %d listed", len(rows), len(listed))
     with db.conn() as c:
@@ -235,7 +239,7 @@ def main():
     p = sub.add_parser("export"); p.add_argument("file"); p.set_defaults(fn=cmd_export)
     p = sub.add_parser("status"); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("load-complexes"); p.add_argument("file"); p.set_defaults(fn=cmd_load_complexes)
-    p = sub.add_parser("refresh-corpcodes"); p.set_defaults(fn=cmd_refresh_corpcodes)
+    p = sub.add_parser("refresh-corpcodes"); p.add_argument("--csv"); p.set_defaults(fn=cmd_refresh_corpcodes)
     p = sub.add_parser("purge-bodies"); p.set_defaults(fn=cmd_purge_bodies)
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
