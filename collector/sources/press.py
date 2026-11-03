@@ -136,7 +136,7 @@ def _from_rss(src: dict, since: date) -> list[dict]:
 
 
 def _from_html(src: dict, since: date) -> list[dict]:
-    r = requests.get(src["url"], headers=UA, timeout=20)
+    r = requests.get(src["url"], headers=UA, timeout=10)
     r.raise_for_status()
     soup = BeautifulSoup(r.text, "html.parser")
     out = []
@@ -213,9 +213,13 @@ def fill_bodies(docs: list[dict], max_resolve: int = 120, workers: int = 8) -> N
     log.info("fill_bodies: google %d/%d resolved, direct %d fetched", ok, len(goog), len(direct))
 
 
-def fetch(since: date) -> list[dict]:
+def fetch(since: date, group: str | None = None) -> list[dict]:
+    """group: 'news'(구글·Bing) | 'paper'(지방지 RSS) | 'gov'(산업부·정책브리핑 HTML) | None(전부)"""
     docs, seen = [], set()
     for src in load_sources():
+        kind = "news" if src.get("aggregator") else ("gov" if src.get("key", "").startswith("gov_") else "paper")
+        if group and kind != group:
+            continue
         try:
             got = _from_rss(src, since) if src.get("type") == "rss" else _from_html(src, since)
             log.info("press[%s]: %d", src["name"], len(got))

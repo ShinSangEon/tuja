@@ -1,6 +1,7 @@
 """파이프라인 — 두 단계로 나뉜다. 가운데 '추출'은 Claude 세션에서 수동으로.
 
   python run.py collect --since 2026-10-01      # 수집 → (DB 있으면 raw_documents 적재) → out/pending.md + pending.jsonl
+  python run.py collect --sources news          # 소스 그룹: dart | news(구글·Bing) | paper(지방지) | gov(산업부·정책브리핑) | press(전부)
         ... Claude 가 out/pending.md 를 읽고 out/extracted.json 작성 ...
   python run.py ingest out/extracted.json       # 검증·병합·지오코딩 → DB (DB 없으면 out/signals.json)
 
@@ -35,7 +36,8 @@ from config import DATABASE_URL
 from sources import dart, naver_news, press
 
 log = logging.getLogger("run")
-SOURCES = {"dart": dart.fetch, "naver_news": naver_news.fetch, "press": press.fetch}
+SOURCES = {"dart": dart.fetch, "naver_news": naver_news.fetch, "press": press.fetch,
+           "news": lambda since: press.fetch(since, "news"), "paper": lambda since: press.fetch(since, "paper"), "gov": lambda since: press.fetch(since, "gov")}
 OUT = Path(__file__).parent / "out"
 
 
