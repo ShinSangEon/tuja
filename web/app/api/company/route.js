@@ -15,7 +15,11 @@ export async function GET(req) {
         // 다른 투자 건(같은 회사)도 같이
         const { rows: others } = await globalThis.__radarPool.query(
             'select id, company_name, sido, sigungu, event_type, stage, amount_krw, relevance_score, grade from signals where corp_code = $1 and not archived order by relevance_score desc', [code]);
-        return NextResponse.json({ ...r, signals: others.map((s) => ({ ...s, amount_krw: s.amount_krw == null ? null : Number(s.amount_krw) })) });
+        const norm = (x) => String(x ?? '').replace(/\(주\)|㈜|주식회사|유한회사|\s+|·|ㆍ/g, '').toLowerCase();
+        const norms = [...new Set([norm(r.corp_name), ...others.map((s) => norm(s.company_name))].filter(Boolean))];
+        const { rows: factories } = await globalThis.__radarPool.query(
+            'select id, company_raw, complex, products, address, sido, sigungu, lat, lng from factories where company_norm = any($1) order by sido, sigungu limit 60', [norms]).catch(() => ({ rows: [] }));
+        return NextResponse.json({ ...r, signals: others.map((s) => ({ ...s, amount_krw: s.amount_krw == null ? null : Number(s.amount_krw) })), factories });
     } catch (e) {
         return NextResponse.json({ error: e.message }, { status: 500 });
     }

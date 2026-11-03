@@ -187,3 +187,12 @@
 .radar .rpt h4 { margin: 8px 0 3px; font-size: 12.5px; }
 .radar .rpt p { margin: 3px 0; color: var(--ink-2); }
 .radar .rpt-row { color: var(--ink-2); padding: 1px 0; border-bottom: 1px dotted var(--line-2); font-feature-settings: "tnum"; }
+
+/* ── 기존 공장 ── */
+.radar .facs { list-style: none; margin: 0; padding: 0; }
+.radar .facs li { display: grid; grid-template-columns: 64px 1fr 10px; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line-2); font-size: 12.5px; align-items: start; }
+.radar .fac-loc { color: var(--ink-2); font-weight: 600; }
+.radar .fac-main { display: flex; flex-direction: column; min-width: 0; }
+.radar .fac-main b { font-weight: 600; }
+.radar .fac-main small { color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radar .fac-nogeo { color: var(--ink-3); }

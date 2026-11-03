@@ -12,7 +12,9 @@ const CLUSTER_STYLES = [
   { width: "48px", height: "48px", lineHeight: "48px", borderRadius: "50%", background: "#16211F", color: "#fff", textAlign: "center", fontWeight: "800", fontSize: "15px", boxShadow: "0 0 0 4px rgba(216,50,31,0.35)" },
 ];
 
-export default function KakaoMap({ signals, selectedId, onSelect, focus }) {
+const FACTORY_PIN = `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="6.5" fill="#fff" fill-opacity="0.85" stroke="#16211F" stroke-width="1.5"/><rect x="6" y="6" width="6" height="6" fill="#16211F"/></svg>')}`;
+
+export default function KakaoMap({ signals, selectedId, onSelect, focus, factories = [] }) {
   const appkey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY ?? "";
   const [loading, error] = useKakaoLoader({ appkey, libraries: ["clusterer"] });
   const located = useMemo(() => signals.filter((s) => s.lat != null && s.lng != null), [signals]);
@@ -53,6 +55,9 @@ export default function KakaoMap({ signals, selectedId, onSelect, focus }) {
           );
         })}
       </MarkerClusterer>
+      {factories.filter((f) => f.lat != null).map((f) => (
+        <MapMarker key={`f${f.id}`} position={{ lat: f.lat, lng: f.lng }} image={{ src: FACTORY_PIN, size: { width: 18, height: 18 } }} title={`기존 공장 · ${f.complex ?? "개별입지"} · ${f.address ?? ""}`} zIndex={0} />
+      ))}
     </Map>
   );
 }

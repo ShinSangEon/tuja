@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import CompanyCard from "@/components/CompanyCard";
 import { EVENT_LABEL, GRADE_LABEL, SIZE_LABEL, STAGE_LABEL, STAGE_ORDER, fmtDate, fmtKrw, grade, priority, PRIORITY_LABEL, scoreColor, sidoName, stageIndex } from "@/lib/format";
 
@@ -64,7 +66,33 @@ export function SignalList({ signals, selectedId, onSelect }) {
   );
 }
 
-export function SignalDetail({ s, onClose, onBack }) {
+/** 등록공장 현황(공공데이터)에서 같은 회사의 기존 공장. 지도에는 연한 핀으로. */
+export function FactoryList({ name, onFactories }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    if (!name) return;
+    setRows(null);
+    fetch(`/api/factories?name=${encodeURIComponent(name)}`).then((r) => r.json()).then((d) => { setRows(d.factories ?? []); onFactories?.(d.factories ?? []); }).catch(() => setRows([]));
+    return () => onFactories?.([]);
+  }, [name]);
+  if (!rows || rows.length === 0) return null;
+  return (
+    <section className="detail-sec">
+      <h3>기존 등록공장 {rows.length}곳 <small>한국산업단지공단 2025.12</small></h3>
+      <ul className="facs">
+        {rows.map((f) => (
+          <li key={f.id}>
+            <span className="fac-loc">{sidoName(f.sido)} {f.sigungu ?? ""}</span>
+            <span className="fac-main">{f.complex ? <b>{f.complex}</b> : <b>개별입지</b>}<small>{(f.products ?? "").slice(0, 40)}</small></span>
+            {f.lat == null && <span className="fac-nogeo" title="아직 좌표 없음">·</span>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function SignalDetail({ s, onClose, onBack, onFactories }) {
   const g = grade(s);
   const p = priority(s.relevance_score);
   return (
@@ -103,6 +131,8 @@ export function SignalDetail({ s, onClose, onBack }) {
         <NeedBars s={s} />
         {s.need_rationale && <p className="rationale">{s.need_rationale}</p>}
       </section>
+
+      <FactoryList name={s.company_name} onFactories={onFactories} />
 
       <CompanyCard corpCode={s.corp_code} currentSignalId={s.id} />
 

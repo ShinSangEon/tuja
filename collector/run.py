@@ -139,6 +139,7 @@ def cmd_ingest(a):
                 db.upsert_signal(c, s)
                 n_new += 0 if s.get("_id") else 1
                 n_upd += 1 if s.get("_id") else 0
+            log.info("factory pins geocoded: %d", geocode_target_factories(c, cache))
             db.save_geocode_cache(c, cache, known)
             log.info("ingest: %d results → %d candidates → %d new, %d updated | stale %d, archived %d",
                      len(results), len(cands), n_new, n_upd, db.mark_stale(c), db.archive_completed(c))
@@ -168,6 +169,23 @@ def cmd_ingest(a):
         log.info("ingest (file mode): %d results → %d candidates → %d signals → %s", len(results), len(cands), len(sigs), prev_path)
 
 
+def geocode_target_factories(c, cache: dict) -> int:
+    """신호에 연결된 회사들의 등록공장 좌표 채우기 (지도 연한 핀용). 회사당 몇 건이라 호출 적음."""
+    n = 0
+    try:
+        for sig in c.execute("select company_norm, corp_code from signals where not archived").fetchall():
+            corp_name = None
+            if sig["corp_code"]:
+                r = c.execute("select corp_name from corp_codes where corp_code = %s", (sig["corp_code"],)).fetchone()
+                corp_name = r["corp_name"] if r else None
+            rows = [r for r in factories.for_company(c, sig["company_norm"], corp_name) if not r.get("lat") and r.get("geocode_status") != "fail"][:12]
+            factories.ensure_geocoded(c, rows, geocode.geocode_address, cache)
+            n += len(rows)
+    except Exception as e:  # noqa: BLE001
+        log.warning("factory geocode skipped: %s", e)
+    return n
+
+
 # ── rebuild: 추출 결과 전체를 다시 병합 (규칙·버그 수정 후) ──
 def cmd_rebuild(a):
     """signals 를 비우고 extractions 전체로 다시 만든다. 수동 입력(owner, manual_grade 등)은 사라진다."""
@@ -188,6 +206,7 @@ def cmd_rebuild(a):
                 if r:
                     s["corp_code"] = r["corp_code"]
             db.upsert_signal(c, geocode_with_factories(c, s, complexes, regions, cache))
+        log.info("factory pins geocoded: %d", geocode_target_factories(c, cache))
         db.save_geocode_cache(c, cache, known)
         log.info("rebuild: %d extractions → %d candidates → %d signals", len(cands), len(cands), len(merged))
 

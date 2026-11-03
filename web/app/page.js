@@ -15,6 +15,7 @@ export default function Page() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lookup, setLookup] = useState(null); // 실시간 검색어
+  const [factories, setFactories] = useState([]); // 선택한 회사의 기존 공장 (지도 연한 핀)
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -63,11 +64,11 @@ export default function Page() {
       <div className="body">
         <FilterBar value={filters} onChange={(f) => { setFilters(f); setSelected(null); }} bySido={data?.bySido ?? {}} unlocated={data?.unlocated ?? 0} />
         <main className="map">
-          <KakaoMap signals={signals} selectedId={selected?.id ?? null} onSelect={setSelected} focus={focus} />
+          <KakaoMap signals={signals} selectedId={selected?.id ?? null} onSelect={setSelected} focus={focus} factories={selected ? factories : []} />
         </main>
         <section className="side">
           {selected
-            ? <SignalDetail s={selected} onClose={() => setSelected(null)} />
+            ? <SignalDetail s={selected} onClose={() => setSelected(null)} onFactories={setFactories} />
             : lookup
               ? <><button className="back side-back" onClick={() => setLookup(null)}>← 목록</button><LookupPanel q={lookup} inDb={signals.length > 0} /></>
               : <>
