@@ -44,7 +44,7 @@ def clean_address(addr: str) -> str:
     a = re.sub(r"\s*\(.*?\)", "", addr)
     a = re.sub(r"\s*(외|및)\s*\d+\s*필지.*$", "", a)
     a = re.sub(r",.*$", "", a)
-    a = re.sub(r"\s+\d+층.*$|\s+제?\d+호.*$|\s+[A-Z]?동\s*\d*호?.*$", "", a)
+    a = re.sub(r"\s+\d+층.*$|\s+제?\d+호.*$|\s+\d+동\s*\d*호?.*$|\s+[A-Z]동\s*\d+호.*$", "", a)
     return re.sub(r"\s+", " ", a).strip()
 
 
