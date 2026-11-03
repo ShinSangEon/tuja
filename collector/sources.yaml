@@ -1,5 +1,5 @@
 # 보도자료·뉴스 소스 등록부 (2026-11-03 재구성)
-# 구성: ① 구글뉴스 키워드 64(제목·폭) ② Bing 뉴스 22(원문 URL·본문) ③ 지방지 RSS 15 ⑤ 지자체 HTML(꺼짐, 선택자 확인 필요)
+# 구성: ① 구글뉴스 키워드 64(제목·폭) ② Bing 뉴스 22(원문 URL·본문) ③ 지방지 RSS 15 ④ 산업부·정책브리핑(tier1) ⑤ 스마트공장·보조금 키워드 ⑤ 지자체 HTML(꺼짐, 선택자 확인 필요)
 # aggregator: true = 구글뉴스. 매체명을 피드에서 뽑아 tier 를 매긴다. include 중 하나가 제목에 있어야 수집.
 # 테스트: cd collector && python -c "from sources.press import fetch; from datetime import date,timedelta; print(len(fetch(date.today()-timedelta(days=3))))"
 sources:
@@ -744,43 +744,141 @@ sources:
   url: https://www.newsgn.com/rss/allArticle.xml
   tier: 3
   include: *id001
-- key: gov_경상남도
-  name: 경상남도
+- key: gov_motie
+  name: 산업통상부
   type: html
-  enabled: false
-  url: https://www.gyeongnam.go.kr/index.gyeong?menuCd=DOM_000000104001001000
-  item_selector: table tbody tr
-  link_selector: td a
-  date_selector: td.date
+  enabled: true
   tier: 1
-  include: *id001
-- key: gov_창원특례시
-  name: 창원특례시
+  url: https://www.motir.go.kr/kor/article/ATCL3f49a5a8c
+  item_selector: table tbody tr
+  link_selector: td.ta-l a
+  date_selector: td:nth-of-type(5)
+  body_selector: article
+  include: &id003
+  - 투자협약
+  - 투자 협약
+  - 증설
+  - 신설
+  - 신공장
+  - 착공
+  - 준공
+  - 입주
+  - 투자유치
+  - MOU
+  - 건립
+  - 공장
+  - 생산라인
+  - 설비투자
+  - 스마트공장
+  - 산단
+  - 산업단지
+  - 보조금
+  - 특구
+- key: gov_koreakr_투자협약_공장
+  name: 정책브리핑
   type: html
-  enabled: false
-  url: https://www.changwon.go.kr/cwportal/10310/10429/10433.web
-  item_selector: table tbody tr
-  link_selector: td a
-  date_selector: td.date
+  enabled: true
   tier: 1
-  include: *id001
-- key: gov_대구광역시
-  name: 대구광역시
+  url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=투자협약 공장
+  item_selector: li
+  link_selector: a[href*="pressReleaseView"]
+  date_selector: li
+  body_selector: '.article_body, #content'
+  include: *id003
+- key: gov_koreakr_공장_증설
+  name: 정책브리핑
   type: html
-  enabled: false
-  url: https://www.daegu.go.kr/index.do?menu_id=00000934
-  item_selector: table tbody tr
-  link_selector: td a
-  date_selector: td.date
+  enabled: true
   tier: 1
-  include: *id001
-- key: gov_산업통상자원부
-  name: 산업통상자원부
+  url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=공장 증설
+  item_selector: li
+  link_selector: a[href*="pressReleaseView"]
+  date_selector: li
+  body_selector: '.article_body, #content'
+  include: *id003
+- key: gov_koreakr_공장_신설
+  name: 정책브리핑
   type: html
-  enabled: false
-  url: https://www.motie.go.kr/kor/article/ATCL3f49a5a8c
-  item_selector: table tbody tr
-  link_selector: td a
-  date_selector: td.date
+  enabled: true
   tier: 1
-  include: *id001
+  url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=공장 신설
+  item_selector: li
+  link_selector: a[href*="pressReleaseView"]
+  date_selector: li
+  body_selector: '.article_body, #content'
+  include: *id003
+- key: gov_koreakr_지방투자촉진보조금
+  name: 정책브리핑
+  type: html
+  enabled: true
+  tier: 1
+  url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=지방투자촉진보조금
+  item_selector: li
+  link_selector: a[href*="pressReleaseView"]
+  date_selector: li
+  body_selector: '.article_body, #content'
+  include: *id003
+- key: gov_koreakr_기회발전특구_투자
+  name: 정책브리핑
+  type: html
+  enabled: true
+  tier: 1
+  url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=기회발전특구 투자
+  item_selector: li
+  link_selector: a[href*="pressReleaseView"]
+  date_selector: li
+  body_selector: '.article_body, #content'
+  include: *id003
+- key: gov_koreakr_산업단지_입주
+  name: 정책브리핑
+  type: html
+  enabled: true
+  tier: 1
+  url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=산업단지 입주
+  item_selector: li
+  link_selector: a[href*="pressReleaseView"]
+  date_selector: li
+  body_selector: '.article_body, #content'
+  include: *id003
+- key: bing_스마트공장_구축_선정기업
+  name: BingNews
+  type: rss
+  aggregator: bing
+  enabled: true
+  query: 스마트공장 구축 선정기업
+  include: *id003
+- key: bing_스마트공장_지원사업_선정
+  name: BingNews
+  type: rss
+  aggregator: bing
+  enabled: true
+  query: 스마트공장 지원사업 선정
+  include: *id003
+- key: bing_지방투자촉진보조금_선정
+  name: BingNews
+  type: rss
+  aggregator: bing
+  enabled: true
+  query: 지방투자촉진보조금 선정
+  include: *id003
+- key: bing_기회발전특구_투자협약
+  name: BingNews
+  type: rss
+  aggregator: bing
+  enabled: true
+  query: 기회발전특구 투자협약
+  include: *id003
+- key: bing_산업단지_입주계약_체결
+  name: BingNews
+  type: rss
+  aggregator: bing
+  enabled: true
+  query: 산업단지 입주계약 체결
+  include: *id003
+- key: bing_공장_준공식
+  name: BingNews
+  type: rss
+  aggregator: bing
+  enabled: true
+  query: 공장 준공식
+  include: *id003

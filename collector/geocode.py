@@ -98,3 +98,15 @@ def geocode_signal(sig: dict, complexes: dict | None = None, regions: dict | Non
         sig["lat"], sig["lng"] = pt
     sig["geocode_status"] = status
     return sig
+
+
+def sigungu_code(query: str) -> str | None:
+    """'경상남도 창원시' → 법정동코드 앞 5자리(시군구 코드). 카카오 주소검색 b_code 사용. 건축HUB 조회용."""
+    if not KAKAO_REST_KEY:
+        return None
+    r = requests.get(ADDR_URL, headers={"Authorization": f"KakaoAK {KAKAO_REST_KEY}"}, params={"query": query, "size": 1}, timeout=10)
+    if r.status_code != 200:
+        return None
+    docs = r.json().get("documents") or []
+    b = (docs[0].get("address") or {}).get("b_code") if docs else None
+    return b[:5] if b else None

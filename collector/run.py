@@ -6,6 +6,7 @@
 
   python run.py rebuild                         # 규칙 수정 후 extractions 전체 재병합 (signals 초기화)
   python run.py companies                       # 타겟 상장사 회사 카드(DART 재무·종업원·생산설비) 갱신
+  python run.py permits                         # 타겟 시군구 최근 공장 건축인허가 (DATA_GO_KR_KEY 필요)
   python run.py export web/public/sample-signals.json   # DB → JSON (대시보드 샘플/백업)
   python run.py load-complexes 산단.csv         # 산단 마스터 (name, sido, sigungu, lat, lng)
   python run.py load-factories 등록공장.csv     # 전국 등록공장 현황 CSV (공공데이터포털 15105482, cp949)
@@ -28,6 +29,7 @@ import db
 import extract
 import factories
 import geocode
+import permits
 import validate
 from config import DATABASE_URL
 from sources import dart, naver_news, press
@@ -227,6 +229,12 @@ def cmd_companies(a):
                 log.warning("company %s failed: %s", code, e)
 
 
+def cmd_permits(a):
+    """건축HUB 공장 인허가 수집 (DATA_GO_KR_KEY 필요)."""
+    with db.conn() as c:
+        log.info("permits saved: %d", permits.refresh_for_signals(c, a.days))
+
+
 # ── 유틸 ────────────────────────────────────────────────
 def cmd_export(a):
     with db.conn() as c:
@@ -301,6 +309,7 @@ def main():
     p.add_argument("--sources", default="dart,press"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_collect)
     p = sub.add_parser("ingest"); p.add_argument("file"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_ingest)
     p = sub.add_parser("rebuild"); p.set_defaults(fn=cmd_rebuild)
+    p = sub.add_parser("permits"); p.add_argument("--days", type=int, default=120); p.set_defaults(fn=cmd_permits)
     p = sub.add_parser("companies"); p.add_argument("--corp-code"); p.add_argument("--max-age", type=int, default=30); p.set_defaults(fn=cmd_companies)
     p = sub.add_parser("export"); p.add_argument("file"); p.set_defaults(fn=cmd_export)
     p = sub.add_parser("status"); p.set_defaults(fn=cmd_status)

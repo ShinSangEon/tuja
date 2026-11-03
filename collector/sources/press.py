@@ -144,10 +144,15 @@ def _from_html(src: dict, since: date) -> list[dict]:
         a = row.select_one(src.get("link_selector", "a"))
         if not a or not a.get("href"):
             continue
-        title = a.get_text(" ", strip=True)
+        title = a.get_text(" ", strip=True).split(" ... ")[0].strip()  # korea.kr: 제목 ... 본문요약 형식
         if not _matches(title, src.get("include", DEFAULT_INCLUDE)):
             continue
         link = urljoin(src["url"], a["href"])
+        name = src["name"]
+        if src.get("key", "").startswith("gov_koreakr"):  # 행 끝 "2026-11-03 산업통상부" → 부처명을 매체명으로
+            m_org = re.search(r"\d{4}-\d{2}-\d{2}\s+(\S+)\s*$", row.get_text(" ", strip=True))
+            if m_org:
+                name = m_org.group(1)
         pub = None
         if src.get("date_selector"):
             d = row.select_one(src["date_selector"])
@@ -160,7 +165,7 @@ def _from_html(src: dict, since: date) -> list[dict]:
         out.append(
             {
                 "source_type": "press",
-                "source_name": src["name"],
+                "source_name": name,
                 "source_tier": src.get("tier", 1),
                 "url": link,
                 "title": title,
