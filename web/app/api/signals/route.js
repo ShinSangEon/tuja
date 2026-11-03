@@ -33,12 +33,12 @@ export async function GET(req) {
         rows = JSON.parse(await fs.readFile(file, 'utf-8'));
     }
 
-    const filtered = rows.filter((s) => {
+    // 지역을 뺀 나머지 조건
+    const base = rows.filter((s) => {
         const g = s.effective_grade ?? s.manual_grade ?? s.grade;
         if (grades.length && !grades.includes(g)) return false;
         if (sizes.length && !sizes.includes(s.size_class)) return false;
         if (stages.length && !stages.includes(s.stage)) return false;
-        if (sidos.length && !sidos.includes(s.sido ?? '')) return false;
         if (s.relevance_score < minScore) return false;
         if (q) {
             const hay = `${s.company_name} ${s.summary ?? ''} ${s.sector ?? ''} ${s.sigungu ?? ''} ${s.industrial_complex ?? ''}`.toLowerCase();
@@ -46,8 +46,19 @@ export async function GET(req) {
         }
         return true;
     });
+    // 시도별 집계 (지역 필터 적용 전) — 왼쪽 레일 막대용
+    const bySido = {};
+    let unlocated = 0;
+    for (const s of base) {
+        if (!s.sido) { unlocated++; continue; }
+        const b = (bySido[s.sido] ??= { total: 0, hot: 0 });
+        b.total++;
+        if (s.relevance_score >= 70) b.hot++;
+    }
+    const filtered = sidos.length ? base.filter((s) => sidos.includes(s.sido ?? '')) : base;
+    const updated_at = rows.reduce((m, s) => (s.last_seen_at && (!m || s.last_seen_at > m) ? s.last_seen_at : m), null);
 
-    return NextResponse.json({ source, total: rows.length, count: filtered.length, signals: filtered });
+    return NextResponse.json({ source, total: rows.length, count: filtered.length, signals: filtered, bySido, unlocated, updated_at });
 }
 
 async function fromDb() {

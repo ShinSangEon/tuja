@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import FilterBar, { DEFAULT_FILTERS } from "@/components/FilterBar";
 import { SignalDetail, SignalList } from "@/components/SignalPanel";
+import { fmtDate, priority } from "@/lib/format";
 
 const KakaoMap = dynamic(() => import("@/components/KakaoMap"), { ssr: false });
 
@@ -35,32 +36,36 @@ export default function Page() {
   }, [query]);
 
   const signals = data?.signals ?? [];
-  const stats = useMemo(() => {
-    const by = (k) => signals.reduce((m, s) => { const v = String(s[k] ?? "?"); m[v] = (m[v] ?? 0) + 1; return m; }, {});
-    return { size: by("size_class"), grade: by("grade"), hot: signals.filter((s) => s.relevance_score >= 70).length };
-  }, [signals]);
+  const hot = signals.filter((s) => priority(s.relevance_score) === "hot").length;
+  const bigSum = signals.reduce((a, s) => a + (s.amount_krw ?? 0), 0);
+  const focus = selected?.lat != null ? { lat: selected.lat, lng: selected.lng } : null;
 
   return (
     <div className="radar">
       <header className="top">
-        <div className="brand">GENEQ 투자 레이더 <span className="muted">ES사업부 영업 타겟</span></div>
-        <div className="stats">
-          <span>표시 <b>{data?.count ?? 0}</b> / 전체 {data?.total ?? 0}</span>
-          <span>🔴 즉시검토 <b>{stats.hot}</b></span>
-          <span>L {stats.size.L ?? 0} · M {stats.size.M ?? 0} · S {stats.size.S ?? 0} · 미상 {stats.size.U ?? 0}</span>
-          <span>A {stats.grade.A ?? 0} · B {stats.grade.B ?? 0} · C {stats.grade.C ?? 0}</span>
-          {data?.source === "sample" && <span className="tag warn">샘플 데이터</span>}
-          {loading && <span className="muted">…</span>}
+        <div className="brand">
+          <span className="brand-name">GENEQ 투자 레이더</span>
+          <span className="brand-sub">국내 공장 신설·증설·개조 신호 → ES사업부 영업 타겟</span>
         </div>
+        <p className="brief">
+          조건에 맞는 <b>{data?.count ?? 0}</b>건 중 즉시 검토 <b className="hot">{hot}</b>건,
+          투자 합계 <b>{bigSum ? `${Math.round(bigSum / 1e8).toLocaleString()}억` : "–"}</b>
+          <span className="brief-meta">
+            {data?.source === "sample" ? "샘플 데이터" : data?.updated_at ? `마지막 업데이트 ${fmtDate(data.updated_at)}` : ""}
+            {loading ? " · 불러오는 중" : ""}
+          </span>
+        </p>
       </header>
 
       <div className="body">
-        <FilterBar value={filters} onChange={(f) => { setFilters(f); setSelected(null); }} />
+        <FilterBar value={filters} onChange={(f) => { setFilters(f); setSelected(null); }} bySido={data?.bySido ?? {}} unlocated={data?.unlocated ?? 0} />
         <main className="map">
-          <KakaoMap signals={signals} selectedId={selected?.id ?? null} onSelect={setSelected} />
+          <KakaoMap signals={signals} selectedId={selected?.id ?? null} onSelect={setSelected} focus={focus} />
         </main>
         <section className="side">
-          {selected ? <SignalDetail s={selected} onClose={() => setSelected(null)} /> : <SignalList signals={signals} selectedId={null} onSelect={setSelected} />}
+          {selected
+            ? <SignalDetail s={selected} onClose={() => setSelected(null)} />
+            : <SignalList signals={signals} selectedId={null} onSelect={setSelected} />}
         </section>
       </div>
     </div>

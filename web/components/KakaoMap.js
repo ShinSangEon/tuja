@@ -1,49 +1,53 @@
 "use client";
 
+import { useMemo } from "react";
 import { Map, MapMarker, MarkerClusterer, useKakaoLoader } from "react-kakao-maps-sdk";
-import { markerDataUri, sizeRadius } from "@/lib/format";
+import { markerImage, priority } from "@/lib/format";
 
-const KOREA_CENTER = { lat: 36.2, lng: 127.8 };
+const KOREA_CENTER = { lat: 36.3, lng: 127.9 };
 
-export default function KakaoMap({
-  signals,
-  selectedId,
-  onSelect,
-}) {
+// 클러스터: 먹색 원 + 흰 숫자. 5건 이상이면 큰 원.
+const CLUSTER_STYLES = [
+  { width: "40px", height: "40px", lineHeight: "40px", borderRadius: "50%", background: "#16211F", color: "#fff", textAlign: "center", fontWeight: "800", fontSize: "14px", boxShadow: "0 0 0 3px rgba(22,33,31,0.18)" },
+  { width: "48px", height: "48px", lineHeight: "48px", borderRadius: "50%", background: "#16211F", color: "#fff", textAlign: "center", fontWeight: "800", fontSize: "15px", boxShadow: "0 0 0 4px rgba(216,50,31,0.35)" },
+];
+
+export default function KakaoMap({ signals, selectedId, onSelect, focus }) {
   const appkey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY ?? "";
   const [loading, error] = useKakaoLoader({ appkey, libraries: ["clusterer"] });
+  const located = useMemo(() => signals.filter((s) => s.lat != null && s.lng != null), [signals]);
+  const hotIds = useMemo(() => new Set(located.filter((s) => priority(s.relevance_score) === "hot").map((s) => s.id)), [located]);
 
   if (!appkey) {
     return (
-      <div className="map-placeholder">
-        <strong>카카오맵 키가 없습니다.</strong>
-        <p>
-          <code>web/.env.local</code> 에 <code>NEXT_PUBLIC_KAKAO_MAP_KEY</code> 를 넣으면 지도가 뜹니다.
-          <br />
-          (developers.kakao.com → 앱 → JavaScript 키, 플랫폼 Web에 http://localhost:3000 등록)
-        </p>
-        <p className="muted">지도 없이도 오른쪽 목록은 동작합니다. 현재 {signals.length}건.</p>
+      <div className="map-empty">
+        <strong>지도 키가 없습니다</strong>
+        <p>배포 환경변수 <code>NEXT_PUBLIC_KAKAO_MAP_KEY</code>를 넣으면 지도가 뜹니다. 목록은 지도 없이도 동작합니다.</p>
       </div>
     );
   }
-  if (error) return <div className="map-placeholder">지도 로드 실패: 도메인 등록 또는 키를 확인하세요. ({String(error)})</div>;
-  if (loading) return <div className="map-placeholder">지도 불러오는 중…</div>;
-
-  const located = signals.filter((s) => s.lat != null && s.lng != null);
+  if (error) return <div className="map-empty"><strong>지도를 불러오지 못했습니다</strong><p>카카오 앱의 Web 플랫폼에 이 주소가 등록돼 있는지 확인하세요.</p></div>;
+  if (loading) return <div className="map-empty"><p>지도 불러오는 중</p></div>;
 
   return (
-    <Map center={KOREA_CENTER} level={13} style={{ width: "100%", height: "100%" }}>
-      <MarkerClusterer averageCenter minLevel={8} gridSize={70}>
+    <Map center={focus ?? KOREA_CENTER} level={focus ? 7 : 12} isPanto style={{ width: "100%", height: "100%" }}>
+      <MarkerClusterer
+        averageCenter
+        minLevel={7}
+        gridSize={64}
+        styles={CLUSTER_STYLES}
+        calculator={[5]}
+      >
         {located.map((s) => {
-          const d = sizeRadius(s.size_class) + 4;
           const sel = s.id === selectedId;
+          const img = markerImage(s, sel);
           return (
             <MapMarker
               key={s.id}
               position={{ lat: s.lat, lng: s.lng }}
-              image={{ src: markerDataUri(s), size: { width: d, height: d } }}
+              image={{ src: img.src, size: { width: img.width, height: img.height }, options: { offset: { x: img.offsetX, y: img.offsetY } } }}
               title={`${s.company_name} · ${s.sigungu ?? s.sido ?? ""}`}
-              zIndex={sel ? 10 : s.relevance_score >= 70 ? 5 : 1}
+              zIndex={sel ? 100 : hotIds.has(s.id) ? 10 : 1}
               onClick={() => onSelect(s)}
             />
           );
