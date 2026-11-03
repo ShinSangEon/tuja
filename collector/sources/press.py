@@ -1,8 +1,9 @@
-"""지자체·중앙부처 보도자료 수집 (tier 1).
+"""보도자료·뉴스 수집 (sources.yaml).
 
-sources.yaml 에 소스를 등록한다. 두 가지 방식:
-  - type: rss  → RSS/Atom 피드 (가장 안정적. 지자체 다수가 제공)
-  - type: html → 목록 페이지 + CSS 선택자 (RSS 없을 때)
+  - type: rss  → RSS/Atom 피드. aggregator: google | bing 이면 뉴스 검색 피드로 취급(매체명을 피드에서 뽑아 tier 매김)
+  - type: html → 목록 페이지 + CSS 선택자
+구글뉴스 링크는 리다이렉트라 본문을 못 가져오므로, 제목으로 Bing 에서 원문 URL 을 찾아 본문을 채운다(resolve_via_bing).
+Bing 뉴스 RSS 는 원문 URL 을 그대로 준다.
 키워드(include) 중 하나가 제목에 있어야 수집한다.
 """
 from __future__ import annotations
@@ -11,7 +12,8 @@ import logging
 import re
 from datetime import date, datetime
 from pathlib import Path
-from urllib.parse import urljoin
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import parse_qs, quote, urljoin, urlparse
 
 import feedparser
 import requests
@@ -50,10 +52,49 @@ def _body(url: str, selector: str | None, max_chars: int = 6000) -> str:
     return re.sub(r"\n{2,}", "\n", text)[:max_chars]
 
 
+_bing_cache: dict[str, str | None] = {}
+
+
+def _bing_rss(query: str, timeout: int = 15):
+    u = f"https://www.bing.com/news/search?q={quote(query)}&format=rss&setlang=ko&cc=KR&mkt=ko-KR"
+    r = requests.get(u, headers=UA, timeout=timeout)
+    r.raise_for_status()
+    return feedparser.parse(r.content).entries
+
+
+def _unwrap_bing(link: str) -> str:
+    if "bing.com/news/apiclick" in link:
+        return parse_qs(urlparse(link).query).get("url", [link])[0]
+    return link
+
+
+def _title_key(t: str) -> str:
+    return re.sub(r"[^가-힣a-z0-9]", "", (t or "").lower())[:40]
+
+
+def resolve_via_bing(title: str) -> str | None:
+    """구글뉴스 제목 → Bing 뉴스 검색 → 같은 제목의 원문 URL. 실패 시 None."""
+    key = _title_key(title)
+    if key in _bing_cache:
+        return _bing_cache[key]
+    url = None
+    try:
+        hits = [_unwrap_bing(e.link) for e in _bing_rss(title[:80]) if _title_key(e.get("title", ""))[:25] == key[:25]]
+        hits.sort(key=lambda u: "msn.com" in u)  # MSN 미러는 본문이 JS 라 원문 우선
+        url = hits[0] if hits else None
+    except Exception as ex:  # noqa: BLE001
+        log.debug("bing resolve failed %r: %s", title[:30], ex)
+    _bing_cache[key] = url
+    return url
+
+
 def _from_rss(src: dict, since: date) -> list[dict]:
-    feed = feedparser.parse(src["url"])
+    if src.get("aggregator") == "bing":
+        entries = _bing_rss(src["query"]) if src.get("query") else feedparser.parse(requests.get(src["url"], headers=UA, timeout=15).content).entries
+    else:
+        entries = feedparser.parse(src["url"]).entries
     out = []
-    for e in feed.entries:
+    for e in entries:
         title = (e.get("title") or "").strip()
         if not _matches(title, src.get("include", DEFAULT_INCLUDE)):
             continue
@@ -66,14 +107,22 @@ def _from_rss(src: dict, since: date) -> list[dict]:
         if not link:
             continue
         name, tier, body = src["name"], src.get("tier", 1), None
-        if src.get("aggregator"):  # 구글 뉴스 RSS: 실제 매체명으로 등급 매기고, 본문은 피드 요약만 (링크가 JS 리다이렉트)
+        agg = src.get("aggregator")
+        if agg == "bing":  # Bing 뉴스 RSS: 원문 URL 그대로. 매체명은 도메인으로
+            link = _unwrap_bing(link)
+            host = urlparse(link).netloc.replace("www.", "")
+            name = next((n for n in TIER2_PRESS if n.lower() in host.lower()), None) or _host_name(host)
+            title = re.sub(r"\s*-\s*[^-]+$", "", title) if " - " in title else title
+            tier = 2 if name in TIER2_PRESS else 3
+            body = None  # 아래에서 원문 fetch
+        elif agg:  # 구글 뉴스 RSS: 매체명은 피드에서. 본문은 나중에 Bing 으로 원문 찾아 채움 (fill_bodies)
             name = (getattr(e, "source", None) or {}).get("title") or name
             title = re.sub(r"\s*-\s*[^-]+$", "", title)  # 제목 끝 " - 매체명" 제거
             tier = 2 if name in TIER2_PRESS else 3
             body = re.sub(r"<[^>]+>", " ", e.get("summary") or "")
         out.append(
             {
-                "source_type": "press" if not src.get("aggregator") else "naver_news",
+                "source_type": "press" if not agg else "naver_news",
                 "source_name": name,
                 "source_tier": tier,
                 "url": link,
@@ -123,13 +172,58 @@ def _from_html(src: dict, since: date) -> list[dict]:
     return out
 
 
+_HOST_NAMES = {"yna.co.kr": "연합뉴스", "newsis.com": "뉴시스", "news1.kr": "뉴스1", "hankyung.com": "한국경제", "mk.co.kr": "매일경제",
+    "sedaily.com": "서울경제", "mt.co.kr": "머니투데이", "asiae.co.kr": "아시아경제", "edaily.co.kr": "이데일리", "etnews.com": "전자신문",
+    "biz.chosun.com": "조선비즈", "fnnews.com": "파이낸셜뉴스", "heraldcorp.com": "헤럴드경제", "ajunews.com": "아주경제", "newspim.com": "뉴스핌",
+    "busan.com": "부산일보", "kookje.co.kr": "국제신문", "knnews.co.kr": "경남신문", "idomin.com": "경남도민일보", "gnnews.co.kr": "경남일보",
+    "imaeil.com": "매일신문", "yeongnam.com": "영남일보", "kyongbuk.co.kr": "경북일보", "ksilbo.co.kr": "경상일보", "msn.com": "MSN"}
+
+
+def _host_name(host: str) -> str:
+    for dom, n in _HOST_NAMES.items():
+        if dom in host:
+            return n
+    return host
+
+
+def fill_bodies(docs: list[dict], max_resolve: int = 120, workers: int = 8) -> None:
+    """구글뉴스 문서: Bing 으로 원문 URL 찾아 url 교체 + 본문 채움. Bing 문서: 본문만."""
+    todo = [d for d in docs if d["source_type"] == "naver_news" and (not d.get("body") or len(d["body"]) < 300)]
+    goog = [d for d in todo if "news.google.com" in d["url"]][:max_resolve]
+    direct = [d for d in todo if "news.google.com" not in d["url"]]
+
+    def _g(d):
+        u = resolve_via_bing(d["title"])
+        if u:
+            d["meta"]["google_url"] = d["url"]; d["url"] = u
+            d["body"] = _body(u, None) or d.get("body") or ""
+            d["meta"]["body_from"] = "bing-resolved"
+
+    def _d(d):
+        d["body"] = _body(d["url"], None) or d.get("body") or ""
+
+    with ThreadPoolExecutor(workers) as ex:
+        list(ex.map(_g, goog)); list(ex.map(_d, direct))
+    ok = sum(1 for d in goog if d["meta"].get("body_from"))
+    log.info("fill_bodies: google %d/%d resolved, direct %d fetched", ok, len(goog), len(direct))
+
+
 def fetch(since: date) -> list[dict]:
-    docs = []
+    docs, seen = [], set()
     for src in load_sources():
         try:
             got = _from_rss(src, since) if src.get("type") == "rss" else _from_html(src, since)
             log.info("press[%s]: %d", src["name"], len(got))
-            docs.extend(got)
+            for d in got:
+                if d["url"] not in seen:
+                    seen.add(d["url"]); docs.append(d)
         except Exception as e:
             log.warning("press[%s] failed: %s", src.get("name"), e)
-    return docs
+    fill_bodies(docs)
+    # 원문 URL 로 바뀐 뒤 중복 제거 (구글·Bing 에서 같은 기사)
+    out, seen2 = [], set()
+    for d in docs:
+        if d["url"] in seen2:
+            continue
+        seen2.add(d["url"]); out.append(d)
+    return out
