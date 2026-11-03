@@ -177,16 +177,16 @@ def merge(base: dict, new: dict) -> dict:
     # 지역: precision 높은 쪽 (기존이 미상이면 무조건 새 값)
     if not base.get("sido") or _PREC.get(new["location_precision"], 0) > _PREC.get(base["location_precision"], 0):
         for k in ("sido", "sigungu", "industrial_complex", "address_raw", "location_precision"):
-            out[k] = new[k]
+            out[k] = new.get(k)
     # 요약: tier 높은 쪽, 같으면 최신
     if nt < bt or (nt == bt and (new.get("published_at") or datetime.min) > (base.get("published_at") or datetime.min)):
         for k in ("summary", "purpose", "company_name"):
             if new.get(k):
-                out[k] = new[k]
+                out[k] = new.get(k)
     # 빈 값 채우기
     for k in ("corp_code", "company_group", "listed", "period_start", "period_end", "floor_area_m2", "sector", "process_hint", "need_rationale"):
         if not out.get(k) and new.get(k):
-            out[k] = new[k]
+            out[k] = new.get(k)
     for k in ("need_compressed_air", "need_dryer", "need_hmi"):
         out[k] = max(out.get(k) or 0, new.get(k) or 0)
     out["confidence"] = max(out.get("confidence") or 0, new.get("confidence") or 0)
