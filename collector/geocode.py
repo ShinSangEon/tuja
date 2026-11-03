@@ -50,13 +50,16 @@ def clean_address(addr: str) -> str:
 
 def geocode_address(addr: str, cache: dict | None = None) -> tuple[float, float] | None:
     key = re.sub(r"\s+", " ", addr).strip()
-    if cache is not None and key in cache:
+    if cache is not None and cache.get(key):
         return cache[key]
-    res = _kakao(ADDR_URL, key) or _kakao(KW_URL, key)
-    if not res:
-        k2 = clean_address(key)
-        if k2 and k2 != key:
-            res = _kakao(ADDR_URL, k2) or _kakao(KW_URL, k2)
+    k2 = clean_address(key)
+    if cache is not None and k2 != key and cache.get(k2):
+        return cache[k2]
+    res = None if (cache is not None and key in cache) else (_kakao(ADDR_URL, key) or _kakao(KW_URL, key))
+    if not res and k2 and k2 != key:
+        res = cache[k2] if (cache is not None and k2 in cache) else (_kakao(ADDR_URL, k2) or _kakao(KW_URL, k2))
+        if cache is not None:
+            cache[k2] = res
     if cache is not None:
         cache[key] = res
     return res
