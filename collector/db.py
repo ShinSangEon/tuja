@@ -57,6 +57,20 @@ def upsert_document(c, doc: dict) -> str | None:
     return str(row["id"]) if row else None
 
 
+def upsert_documents(c, docs: list[dict]) -> int:
+    """일괄 적재. 반환: 새로 들어간 수."""
+    if not docs:
+        return 0
+    before = c.execute("select count(*) from raw_documents").fetchone()["count"]
+    with c.cursor() as cur:
+        cur.executemany(
+            """insert into raw_documents (source_type, source_name, source_tier, url, title, body, published_at, meta)
+               values (%s,%s,%s,%s,%s,%s,%s,%s) on conflict (url) do nothing""",
+            [(d["source_type"], d.get("source_name"), d.get("source_tier", 3), d["url"], d.get("title"), d.get("body"), d.get("published_at"), Jsonb(d.get("meta") or {})) for d in docs],
+        )
+    return c.execute("select count(*) from raw_documents").fetchone()["count"] - before
+
+
 def pending_documents(c, limit: int = 500) -> list[dict]:
     return c.execute("select * from raw_documents where not extracted order by published_at desc nulls last limit %s", (limit,)).fetchall()
 

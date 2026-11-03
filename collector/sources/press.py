@@ -216,18 +216,26 @@ def fill_bodies(docs: list[dict], max_resolve: int = 120, workers: int = 8) -> N
 def fetch(since: date, group: str | None = None) -> list[dict]:
     """group: 'news'(구글·Bing) | 'paper'(지방지 RSS) | 'gov'(산업부·정책브리핑 HTML) | None(전부)"""
     docs, seen = [], set()
+    srcs = []
     for src in load_sources():
         kind = "news" if src.get("aggregator") else ("gov" if src.get("key", "").startswith("gov_") else "paper")
-        if group and kind != group:
-            continue
+        if not group or kind == group:
+            srcs.append(src)
+
+    def _one(src):
         try:
             got = _from_rss(src, since) if src.get("type") == "rss" else _from_html(src, since)
-            log.info("press[%s]: %d", src["name"], len(got))
+            log.info("press[%s]: %d", src.get("key", src["name"]), len(got))
+            return got
+        except Exception as e:  # noqa: BLE001
+            log.warning("press[%s] failed: %s", src.get("key"), str(e)[:120])
+            return []
+
+    with ThreadPoolExecutor(8) as ex:  # 피드 86개를 순차로 받으면 1분 넘게 걸린다
+        for got in ex.map(_one, srcs):
             for d in got:
                 if d["url"] not in seen:
                     seen.add(d["url"]); docs.append(d)
-        except Exception as e:
-            log.warning("press[%s] failed: %s", src.get("name"), e)
     fill_bodies(docs)
     # 원문 URL 로 바뀐 뒤 중복 제거 (구글·Bing 에서 같은 기사)
     out, seen2 = [], set()

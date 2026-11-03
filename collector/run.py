@@ -60,7 +60,7 @@ def cmd_collect(a):
     pending = []
     if DATABASE_URL and not a.no_db:
         with db.conn() as c:
-            new = sum(1 for d in docs if db.upsert_document(c, d))
+            new = db.upsert_documents(c, docs)
             log.info("new documents in DB: %d", new)
             for d in db.pending_documents(c):
                 d["id"] = str(d["id"])
