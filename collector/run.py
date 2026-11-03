@@ -56,6 +56,13 @@ def cmd_collect(a):
             log.info("new documents in DB: %d", new)
             for d in db.pending_documents(c):
                 d["id"] = str(d["id"])
+                rc = (d.get("meta") or {}).get("rcept_no")
+                if d.get("source_type") == "dart" and rc and len(d.get("body") or "") < 300:
+                    try:  # 웹 실시간 검색으로 추가된 공시 — 본문 보강
+                        d["body"] = dart._focus(dart.fetch_document_text(rc))
+                        c.execute("update raw_documents set body = %s where id = %s", (d["body"], d["id"]))
+                    except Exception as e:  # noqa: BLE001
+                        log.warning("dart body fill failed %s: %s", rc, e)
                 ok = extract.prefilter(d.get("title") or "", d.get("body") or "", d.get("source_type", ""))
                 if ok:
                     pending.append(d)

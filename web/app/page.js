@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import FilterBar, { DEFAULT_FILTERS } from "@/components/FilterBar";
 import { SignalDetail, SignalList } from "@/components/SignalPanel";
+import LookupPanel from "@/components/LookupPanel";
 import { fmtDate, priority } from "@/lib/format";
 
 const KakaoMap = dynamic(() => import("@/components/KakaoMap"), { ssr: false });
@@ -13,6 +14,7 @@ export default function Page() {
   const [data, setData] = useState(null);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [lookup, setLookup] = useState(null); // 실시간 검색어
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -26,6 +28,7 @@ export default function Page() {
   }, [filters]);
 
   useEffect(() => {
+    setLookup(null);
     const ctl = new AbortController();
     setLoading(true);
     fetch(`/api/signals?${query}`, { signal: ctl.signal })
@@ -65,7 +68,19 @@ export default function Page() {
         <section className="side">
           {selected
             ? <SignalDetail s={selected} onClose={() => setSelected(null)} />
-            : <SignalList signals={signals} selectedId={null} onSelect={setSelected} />}
+            : lookup
+              ? <><button className="back side-back" onClick={() => setLookup(null)}>← 목록</button><LookupPanel q={lookup} inDb={signals.length > 0} /></>
+              : <>
+                  {filters.q.length >= 2 && !loading && (
+                    <div className="lookup-cta">
+                      {signals.length === 0
+                        ? <><b>‘{filters.q}’</b> 은(는) 레이더에 없습니다.</>
+                        : <>레이더 안 결과 {signals.length}건.</>}
+                      <button className="link" onClick={() => setLookup(filters.q.trim())}>구글뉴스·DART에서 바로 찾기</button>
+                    </div>
+                  )}
+                  <SignalList signals={signals} selectedId={null} onSelect={setSelected} />
+                </>}
         </section>
       </div>
     </div>

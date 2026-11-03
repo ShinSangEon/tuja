@@ -141,3 +141,24 @@
 @media (prefers-reduced-motion: no-preference) {
   .radar .row, .radar .sido-row, .radar .seg button { transition: background 120ms; }
 }
+
+/* ── 실시간 검색 ── */
+.radar .lookup-cta { padding: 12px 14px; background: var(--watch-bg); border-bottom: 1px solid var(--line); font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.radar .side-back { margin: 10px 14px 0; }
+.radar .lookup { padding: 8px 18px 24px; }
+.radar .lookup-head h3 { font-size: 15px; color: var(--ink); margin-bottom: 2px; }
+.radar .lookup-head p { margin: 0 0 10px; color: var(--ink-2); font-size: 13px; }
+.radar .lookup-sum { margin: 0 0 8px; font-size: 13.5px; }
+.radar .lookup-note { font-size: 12.5px; color: var(--ink-3); margin: 0 0 8px; }
+.radar .lookup-list { list-style: none; margin: 0; padding: 0; }
+.radar .lookup-list li { border-bottom: 1px solid var(--line-2); }
+.radar .lookup-list label { display: grid; grid-template-columns: 18px 40px 1fr; gap: 8px; align-items: start; padding: 8px 0; cursor: pointer; }
+.radar .lookup-list input { margin-top: 3px; }
+.radar .lookup-list .tier { margin-top: 2px; }
+.radar .lk-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.radar .lk-main a { font-size: 13px; text-decoration: none; line-height: 1.4; }
+.radar .lk-main a:hover { text-decoration: underline; }
+.radar .lookup-act { position: sticky; bottom: 0; background: var(--panel); padding: 12px 0 4px; border-top: 1px solid var(--line); margin-top: 8px; }
+.radar .primary { width: 100%; padding: 10px; border: 0; border-radius: var(--r); background: var(--ink); color: #fff; font-weight: 700; }
+.radar .primary:disabled { background: var(--ink-3); cursor: default; }
+.radar .lookup-ok { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
