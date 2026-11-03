@@ -39,11 +39,24 @@ def _kakao(url: str, query: str) -> tuple[float, float] | None:
     return float(docs[0]["y"]), float(docs[0]["x"])
 
 
+def clean_address(addr: str) -> str:
+    """'외 1필지', '(창성동)', '1층', '제101호' 같은 꼬리를 떼면 카카오 매칭률이 오른다."""
+    a = re.sub(r"\s*\(.*?\)", "", addr)
+    a = re.sub(r"\s*(외|및)\s*\d+\s*필지.*$", "", a)
+    a = re.sub(r",.*$", "", a)
+    a = re.sub(r"\s+\d+층.*$|\s+제?\d+호.*$|\s+[A-Z]?동\s*\d*호?.*$", "", a)
+    return re.sub(r"\s+", " ", a).strip()
+
+
 def geocode_address(addr: str, cache: dict | None = None) -> tuple[float, float] | None:
     key = re.sub(r"\s+", " ", addr).strip()
     if cache is not None and key in cache:
         return cache[key]
     res = _kakao(ADDR_URL, key) or _kakao(KW_URL, key)
+    if not res:
+        k2 = clean_address(key)
+        if k2 and k2 != key:
+            res = _kakao(ADDR_URL, k2) or _kakao(KW_URL, k2)
     if cache is not None:
         cache[key] = res
     return res

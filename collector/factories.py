@@ -117,11 +117,11 @@ def match_for_signal(c, sig: dict) -> dict | None:
 def ensure_geocoded(c, rows: list[dict], geocode_address, cache: dict) -> None:
     """lat 없는 공장은 주소로 geocode 해서 저장 (타겟 회사 것만 호출되므로 건수 적음)."""
     for r in rows:
-        if r.get("lat") or not r.get("address"):
+        if r.get("lat") or not r.get("address") or r.get("geocode_status") == "fail2":
             continue
         pt = geocode_address(r["address"], cache)
         if pt:
             r["lat"], r["lng"] = pt
             c.execute("update factories set lat=%s, lng=%s, geocode_status='ok' where id=%s", (pt[0], pt[1], r["id"]))
-        else:
-            c.execute("update factories set geocode_status='fail' where id=%s", (r["id"],))
+        else:  # 1차 실패는 'fail' (주소 정리 후 한 번 더), 2차 실패는 'fail2'
+            c.execute("update factories set geocode_status = case when geocode_status='fail' then 'fail2' else 'fail' end where id=%s", (r["id"],))

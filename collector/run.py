@@ -178,7 +178,7 @@ def geocode_target_factories(c, cache: dict) -> int:
             if sig["corp_code"]:
                 r = c.execute("select corp_name from corp_codes where corp_code = %s", (sig["corp_code"],)).fetchone()
                 corp_name = r["corp_name"] if r else None
-            rows = [r for r in factories.for_company(c, sig["company_norm"], corp_name) if not r.get("lat") and r.get("geocode_status") != "fail"][:12]
+            rows = [r for r in factories.for_company(c, sig["company_norm"], corp_name) if not r.get("lat") and r.get("geocode_status") != "fail2"][:12]
             factories.ensure_geocoded(c, rows, geocode.geocode_address, cache)
             n += len(rows)
     except Exception as e:  # noqa: BLE001
