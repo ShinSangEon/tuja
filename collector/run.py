@@ -199,14 +199,18 @@ def cmd_load_complexes(a):
 
 def cmd_refresh_corpcodes(_a):
     rows = dart.download_corp_codes()
+    listed = [(validate.normalize_company(r["corp_name"]), r["corp_name"], r["corp_code"], r["stock_code"]) for r in rows if r["stock_code"]]
+    log.info("corp codes: %d total, %d listed", len(rows), len(listed))
     with db.conn() as c:
-        for r in rows:
-            if not r["stock_code"]:
-                continue
-            norm = validate.normalize_company(r["corp_name"])
-            c.execute("insert into company_aliases (alias_norm, canonical_norm, corp_code) values (%s,%s,%s) on conflict (alias_norm) do nothing",
-                      (norm, norm, r["corp_code"]))
-    log.info("corp codes: %d rows", len(rows))
+        c.execute("""create table if not exists corp_codes (corp_code text primary key, corp_name text not null, name_norm text not null, stock_code text);
+                     create index if not exists corp_codes_norm_idx on corp_codes (name_norm)""")
+        c.execute("delete from corp_codes")
+        with c.cursor().copy("copy corp_codes (name_norm, corp_name, corp_code, stock_code) from stdin") as cp:
+            for row in listed:
+                cp.write_row(row)
+        c.execute("""insert into company_aliases (alias_norm, canonical_norm, corp_code)
+                     select name_norm, name_norm, corp_code from corp_codes on conflict (alias_norm) do nothing""")
+    log.info("corp_codes table: %d rows", len(listed))
 
 
 def cmd_purge_bodies(_a):
