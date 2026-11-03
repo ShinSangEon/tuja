@@ -96,3 +96,24 @@ export function stageIndex(stage) {
   const i = STAGE_ORDER.indexOf(stage);
   return i < 0 ? 0 : i;
 }
+
+
+/**
+ * 설비 추정 (참고용 휴리스틱). 업종 × 규모 → 예상 압축기 총용량, 드라이어 타입, 비고.
+ * 근거: 업종별 압축공기 원단위 경험치. 실제 제안 전 현장 확인 필요.
+ */
+const EST = {
+  clean:   { L: "1,000kW+ (다수 대형 무급유)", M: "300~1,000kW", S: "75~300kW", U: "규모 미상", dryer: "흡착식 저노점(−40~−70℃) 필수", note: "클린 공정 — 무급유(Oil-free) 압축기, 고효율 필터 세트" },
+  gmp:     { L: "500~1,500kW", M: "150~500kW", S: "37~150kW", U: "규모 미상", dryer: "흡착식(−40℃) + 제균 필터", note: "GMP — 무급유 권장, 에어 품질 ISO 8573-1 Class 1~2" },
+  general: { L: "500~2,000kW", M: "150~500kW", S: "37~150kW", U: "규모 미상", dryer: "냉동식 기본, 도장·분체는 흡착식", note: "급유식 가능, 인버터·대수제어 제안" },
+  heavy:   { L: "1,000~3,000kW", M: "300~1,000kW", S: "75~300kW", U: "규모 미상", dryer: "냉동식 + 계장용 흡착식", note: "계장용 공기(IA) 별도 라인, 대용량 원심식 검토" },
+  light:   { L: "100~300kW", M: "37~100kW", S: "~37kW", U: "규모 미상", dryer: "냉동식", note: "수요 낮음, 소형 스크류" },
+};
+const SECTOR_CLASS = { "반도체": "clean", "디스플레이": "clean", "이차전지": "clean", "전자부품": "clean", "제약·바이오": "gmp", "식품·음료": "gmp",
+  "자동차·부품": "general", "기계·장비": "general", "섬유": "general", "항공·방산": "general", "조선·해양": "heavy", "철강·금속": "heavy", "화학·소재": "heavy", "에너지": "heavy",
+  "물류·창고": "light", "데이터센터": "light", "기타": "general" };
+export function estimateUtility(s) {
+  const cls = SECTOR_CLASS[s.sector] ?? "general";
+  const e = EST[cls];
+  return { air: e[s.size_class] ?? e.U, dryer: e.dryer, note: e.note };
+}

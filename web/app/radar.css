@@ -196,3 +196,7 @@
 .radar .fac-main b { font-weight: 600; }
 .radar .fac-main small { color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .radar .fac-nogeo { color: var(--ink-3); }
+
+.radar .est { display: grid; grid-template-columns: 72px 1fr; gap: 4px 10px; font-size: 12.5px; margin: 10px 0 0; padding: 8px 10px; background: var(--paper); border-radius: var(--r); }
+.radar .est dt { color: var(--ink-3); } .radar .est dd { margin: 0; }
+.radar .est-note { grid-column: 1 / -1; color: var(--ink-3); font-size: 11.5px; }

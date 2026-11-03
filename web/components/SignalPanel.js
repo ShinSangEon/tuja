@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import CompanyCard from "@/components/CompanyCard";
-import { EVENT_LABEL, GRADE_LABEL, SIZE_LABEL, STAGE_LABEL, STAGE_ORDER, fmtDate, fmtKrw, grade, priority, PRIORITY_LABEL, scoreColor, sidoName, stageIndex } from "@/lib/format";
+import { estimateUtility, EVENT_LABEL, GRADE_LABEL, SIZE_LABEL, STAGE_LABEL, STAGE_ORDER, fmtDate, fmtKrw, grade, priority, PRIORITY_LABEL, scoreColor, sidoName, stageIndex } from "@/lib/format";
 
 /** 5단계 진행바 — 공시→협약→인허가→착공→준공 (진짜 순서라서 진행바) */
 export function StageBar({ stage, compact = false }) {
@@ -130,6 +130,13 @@ export function SignalDetail({ s, onClose, onBack, onFactories }) {
         <h3>우리 설비가 필요한 이유</h3>
         <NeedBars s={s} />
         {s.need_rationale && <p className="rationale">{s.need_rationale}</p>}
+        {(() => { const e = estimateUtility(s); return (
+          <dl className="est">
+            <dt>예상 압축기</dt><dd>{e.air}</dd>
+            <dt>드라이어</dt><dd>{e.dryer}</dd>
+            <dt>제안 포인트</dt><dd>{e.note}</dd>
+            <dd className="est-note">업종·규모 기반 추정치. 현장 확인 전 참고용.</dd>
+          </dl>); })()}
       </section>
 
       <FactoryList name={s.company_name} onFactories={onFactories} />
