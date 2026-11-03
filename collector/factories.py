@@ -107,7 +107,7 @@ def match_for_signal(c, sig: dict) -> dict | None:
             if r["sigungu"] and r["sigungu"][:2] == sig["sigungu"][:2]:
                 return r
     # 신공장·이전은 새 자리라서 산단/시군구가 맞을 때만. 증설·설비·개조는 기존 공장에서 일어나므로 같은 시도에 공장이 하나뿐이면 그것.
-    if sig.get("event_type") in ("expansion", "equipment", "retrofit") and sig.get("sido"):
+    if sig.get("event_type") in ("expansion", "equipment", "retrofit") and sig.get("sido") and not sig.get("sigungu"):
         same = [r for r in rows if r["sido"] == sig["sido"]]
         if len(same) == 1:
             return same[0]
