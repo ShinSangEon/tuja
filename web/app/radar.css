@@ -162,3 +162,28 @@
 .radar .primary { width: 100%; padding: 10px; border: 0; border-radius: var(--r); background: var(--ink); color: #fff; font-weight: 700; }
 .radar .primary:disabled { background: var(--ink-3); cursor: default; }
 .radar .lookup-ok { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+
+/* ── 회사 카드 ── */
+.radar .company h3 small { font-weight: 500; margin-left: 6px; }
+.radar .co-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 13.5px; margin-bottom: 6px; }
+.radar .co-k { color: var(--ink-3); font-size: 12px; margin-right: 6px; }
+.radar .co-addr { font-size: 12.5px; color: var(--ink-2); margin-bottom: 10px; }
+.radar .trends { display: flex; gap: 14px; margin: 8px 0 10px; }
+.radar .trend { flex: 1; display: flex; flex-direction: column; align-items: stretch; }
+.radar .trend-l { font-size: 11.5px; color: var(--ink-3); margin-bottom: 4px; }
+.radar .trend-bars { display: flex; gap: 4px; align-items: flex-end; height: 44px; }
+.radar .trend-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.radar .trend-bar { background: var(--ink-3); border-radius: 2px 2px 0 0; }
+.radar .trend-col:last-child .trend-bar { background: var(--ink); }
+.radar .trend-bar.neg { background: var(--hot); }
+.radar .trend-y { font-size: 10px; color: var(--ink-3); text-align: center; margin-top: 2px; }
+.radar .trend-v { font-size: 13px; font-weight: 800; margin-top: 2px; }
+.radar .co-others { font-size: 12.5px; margin: 4px 0 8px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.radar .co-chip { background: var(--line-2); border-radius: 999px; padding: 2px 8px; font-size: 12px; }
+.radar .co-sum { font-size: 13px; line-height: 1.55; background: var(--watch-bg); padding: 8px 10px; border-radius: var(--r); margin: 6px 0; }
+.radar .co-rpt { margin-top: 6px; }
+.radar .co-link { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--ink-2); }
+.radar .rpt { margin-top: 8px; max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; background: #FBFBFA; font-size: 12px; line-height: 1.5; }
+.radar .rpt h4 { margin: 8px 0 3px; font-size: 12.5px; }
+.radar .rpt p { margin: 3px 0; color: var(--ink-2); }
+.radar .rpt-row { color: var(--ink-2); padding: 1px 0; border-bottom: 1px dotted var(--line-2); font-feature-settings: "tnum"; }

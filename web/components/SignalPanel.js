@@ -1,5 +1,6 @@
 "use client";
 
+import CompanyCard from "@/components/CompanyCard";
 import { EVENT_LABEL, GRADE_LABEL, SIZE_LABEL, STAGE_LABEL, STAGE_ORDER, fmtDate, fmtKrw, grade, priority, PRIORITY_LABEL, scoreColor, sidoName, stageIndex } from "@/lib/format";
 
 /** 5단계 진행바 — 공시→협약→인허가→착공→준공 (진짜 순서라서 진행바) */
@@ -102,6 +103,8 @@ export function SignalDetail({ s, onClose, onBack }) {
         <NeedBars s={s} />
         {s.need_rationale && <p className="rationale">{s.need_rationale}</p>}
       </section>
+
+      <CompanyCard corpCode={s.corp_code} currentSignalId={s.id} />
 
       <section className="detail-sec">
         <h3>출처 {s.source_count}건</h3>

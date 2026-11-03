@@ -5,6 +5,7 @@
   python run.py ingest out/extracted.json       # 검증·병합·지오코딩 → DB (DB 없으면 out/signals.json)
 
   python run.py rebuild                         # 규칙 수정 후 extractions 전체 재병합 (signals 초기화)
+  python run.py companies                       # 타겟 상장사 회사 카드(DART 재무·종업원·생산설비) 갱신
   python run.py export web/public/sample-signals.json   # DB → JSON (대시보드 샘플/백업)
   python run.py load-complexes 산단.csv         # 산단 마스터 (name, sido, sigungu, lat, lng)
   python run.py refresh-corpcodes               # DART 고유번호 → company_aliases
@@ -21,6 +22,7 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import companies
 import db
 import extract
 import geocode
@@ -167,6 +169,22 @@ def cmd_rebuild(a):
         log.info("rebuild: %d extractions → %d candidates → %d signals", len(cands), len(cands), len(merged))
 
 
+# ── 회사 카드 ─────────────────────────────────────────
+def cmd_companies(a):
+    """signals 에 연결된 상장사의 DART 프로필(기본정보·재무 3년·종업원·사업보고서 생산설비 섹션)을 companies 에 적재."""
+    with db.conn() as c:
+        codes = [a.corp_code] if a.corp_code else companies.targets(c, a.max_age)
+        log.info("companies: %d to refresh", len(codes))
+        for i, code in enumerate(codes, 1):
+            try:
+                row = companies.build(code)
+                companies.upsert(c, row)
+                c.commit()
+                log.info("[%d/%d] %s %s emp=%s fin=%s facility=%d자", i, len(codes), code, row.get("corp_name"), row.get("employees"), row.get("fin_year"), len(row.get("facility_text") or ""))
+            except Exception as e:  # noqa: BLE001
+                log.warning("company %s failed: %s", code, e)
+
+
 # ── 유틸 ────────────────────────────────────────────────
 def cmd_export(a):
     with db.conn() as c:
@@ -236,6 +254,7 @@ def main():
     p.add_argument("--sources", default="dart,press"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_collect)
     p = sub.add_parser("ingest"); p.add_argument("file"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_ingest)
     p = sub.add_parser("rebuild"); p.set_defaults(fn=cmd_rebuild)
+    p = sub.add_parser("companies"); p.add_argument("--corp-code"); p.add_argument("--max-age", type=int, default=30); p.set_defaults(fn=cmd_companies)
     p = sub.add_parser("export"); p.add_argument("file"); p.set_defaults(fn=cmd_export)
     p = sub.add_parser("status"); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("load-complexes"); p.add_argument("file"); p.set_defaults(fn=cmd_load_complexes)
