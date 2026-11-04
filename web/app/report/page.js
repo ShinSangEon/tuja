@@ -114,7 +114,7 @@ export default async function Report({ searchParams }) {
         <div className="kpi hot"><b>{hot.length}</b><span>즉시 검토 (70점+)</span><small>그중 발주 전·착공 {early.length}건</small></div>
         <div className="kpi"><b>{fresh.length}</b><span>이번 주 새로 포착</span><small>문서 {docs.recent.toLocaleString()}건 읽음 · 누적 {docs.n.toLocaleString()}</small></div>
         <div className="kpi cust"><b>{cust.length}</b><span>기존 거래처의 투자</span><small>{cust.slice(0, 3).map((s) => s.customer_name).join(" · ") || "–"}</small></div>
-        <div className="kpi"><b>{near.length}</b><span>거점 60km 이내</span><small>창원·김해·아산 기준 방문 가능</small></div>
+        <div className="kpi"><b>{near.length}</b><span>거점 60km 이내</span><small>창원·김해·평택 기준 방문 가능</small></div>
       </section>
 
       <section className="top3">
@@ -301,7 +301,7 @@ export default async function Report({ searchParams }) {
       </section>
 
       <footer className="rpt-foot">
-        <p>읽는 법 — 점수: 업종·공정·단계로 산정한 압축기·드라이어·HMI 수요 관련도(70+ 즉시 검토, 40~69 모니터링). 등급: A 공식 출처(공시·정부 발표), B 서로 다른 주요 언론 2곳 이상 또는 매체 4곳 이상 보도, C 그 외. 예상 압축기 용량과 '발주 예상' 시기(준공 목표 6~9개월 전)는 추정치로 현장 확인 전 참고용입니다. 거점 거리는 창원·김해·아산 기준 직선거리입니다.</p>
+        <p>읽는 법 — 점수: 업종·공정·단계로 산정한 압축기·드라이어·HMI 수요 관련도(70+ 즉시 검토, 40~69 모니터링). 등급: A 공식 출처(공시·정부 발표), B 서로 다른 주요 언론 2곳 이상 또는 매체 4곳 이상 보도, C 그 외. 예상 압축기 용량과 '발주 예상' 시기(준공 목표 6~9개월 전)는 추정치로 현장 확인 전 참고용입니다. 거점 거리는 창원 본사·김해 공장·평택 중부사무소 기준 직선거리입니다.</p>
         <p>출처: DART 전자공시, 산업통상부·정책브리핑, 구글·Bing 뉴스, 지방지 RSS, 한국산업단지공단 등록공장현황, 국토교통부 건축HUB 건축인허가. 자동 수집 후 담당자 검수.</p>
       </footer>
     </main>
