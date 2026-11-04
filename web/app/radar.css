@@ -223,3 +223,35 @@
 .radar .cust-toggle { display: flex; align-items: center; gap: 7px; width: 100%; margin-top: 8px; padding: 7px 10px; border: 1.5px solid var(--line); background: #fff; border-radius: var(--r); font-size: 12.5px; color: var(--ink-2); }
 .radar .cust-toggle.on { border-color: #2457C5; background: #EAF0FB; color: #1B3F8F; font-weight: 700; }
 .radar .cust-dot { width: 12px; height: 12px; border-radius: 50%; background: #2457C5; border: 2px solid var(--ink); flex: none; }
+
+/* 영업 진행 */
+.radar .sales { background: var(--paper); margin: 0 -4px 16px; padding: 12px 10px 10px; border-radius: 6px; border-top: none; }
+.radar .me-row, .radar .kv-edit { display: grid; grid-template-columns: 44px 1fr auto; gap: 6px; align-items: center; margin-bottom: 6px; font-size: 12.5px; }
+.radar .me-row label, .radar .kv-edit label { color: var(--ink-2); font-weight: 600; }
+.radar .me-row input, .radar .kv-edit input, .radar .act-form input, .radar .act-form select { padding: 6px 8px; border: 1.5px solid var(--line); border-radius: var(--r); font-size: 12.5px; background: #fff; min-width: 0; }
+.radar .me-row input:focus, .radar .kv-edit input:focus, .radar .act-form input:focus { outline: none; border-color: var(--ink); }
+.radar .mini { padding: 5px 8px; border: 1.5px solid var(--line); background: #fff; border-radius: var(--r); font-size: 11.5px; white-space: nowrap; }
+.radar .mini:disabled { opacity: .45; }
+.radar .status-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 10px; }
+.radar .chip { padding: 4px 9px; border: 1.5px solid var(--line); background: #fff; border-radius: 999px; font-size: 12px; color: var(--ink-2); }
+.radar .chip.on { border-color: var(--ink); background: var(--ink); color: #fff; font-weight: 700; }
+.radar .chip.won.on { background: #1E7F4F; border-color: #1E7F4F; }
+.radar .chip.lost.on { background: var(--ink-3); border-color: var(--ink-3); }
+.radar .chip.quoted.on, .radar .chip.meeting.on { background: var(--hot); border-color: var(--hot); }
+.radar .act-form { display: grid; grid-template-columns: 64px 1fr auto; gap: 6px; margin-top: 8px; }
+.radar .act-form button { padding: 6px 12px; border: none; background: var(--ink); color: #fff; border-radius: var(--r); font-weight: 700; font-size: 12.5px; }
+.radar .act-form button:disabled { opacity: .4; }
+.radar .form-err { color: var(--hot); font-size: 12px; margin: 6px 0 0; }
+.radar .timeline { list-style: none; margin: 10px 0 0; padding: 0; border-left: 2px solid var(--line); }
+.radar .timeline li { display: grid; grid-template-columns: 74px 34px 1fr; gap: 6px; padding: 4px 0 4px 10px; font-size: 12.5px; position: relative; }
+.radar .timeline li::before { content: ""; position: absolute; left: -5px; top: 9px; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.radar .timeline li.quote::before, .radar .timeline li.visit::before { background: var(--hot); }
+.radar .timeline li.call::before { background: var(--ink); }
+.radar .tl-when { color: var(--ink-3); font-feature-settings: "tnum"; white-space: nowrap; }
+.radar .tl-kind { color: var(--ink-2); font-weight: 600; }
+.radar .tl-body { min-width: 0; overflow-wrap: anywhere; } .radar .tl-body b { margin-right: 4px; }
+.radar .st { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--ink); color: #fff; white-space: nowrap; }
+.radar .st-won { background: #1E7F4F; } .radar .st-lost { background: var(--ink-3); } .radar .st-quoted, .radar .st-meeting { background: var(--hot); }
+.radar .logout { display: inline; margin-left: 10px; }
+.radar .logout button { border: none; background: none; color: var(--ink-3); font-size: 12px; cursor: pointer; padding: 0; }
+.radar .logout button:hover { color: var(--ink); text-decoration: underline; }

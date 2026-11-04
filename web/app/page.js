@@ -57,6 +57,7 @@ export default function Page() {
           조건에 맞는 <b>{data?.count ?? 0}</b>건 중 즉시 검토 <b className="hot">{hot}</b>건,
           투자 합계 <b>{bigSum ? `${Math.round(bigSum / 1e8).toLocaleString()}억` : "–"}</b>
           <a className="brief-link" href="/report">주간 보고 보기</a>
+          <form action="/api/logout" method="post" className="logout"><button type="submit">로그아웃</button></form>
           <span className="brief-meta">
             {data?.source === "sample" ? "샘플 데이터" : data?.updated_at ? `마지막 업데이트 ${fmtDate(data.updated_at)}` : ""}
             {loading ? " · 불러오는 중" : ""}
@@ -71,7 +72,8 @@ export default function Page() {
         </main>
         <section className="side">
           {selected
-            ? <SignalDetail s={selected} onClose={() => setSelected(null)} onFactories={setFactories} onPermits={setPermits} />
+            ? <SignalDetail s={selected} onClose={() => setSelected(null)} onFactories={setFactories} onPermits={setPermits}
+                onSalesChange={(id, patch) => { setSelected((x) => (x && x.id === id ? { ...x, ...patch } : x)); setData((d) => (d ? { ...d, signals: d.signals.map((x) => (x.id === id ? { ...x, ...patch } : x)) } : d)); }} />
             : lookup
               ? <><button className="back side-back" onClick={() => setLookup(null)}>← 목록</button><LookupPanel q={lookup} inDb={signals.length > 0} /></>
               : <>

@@ -167,8 +167,53 @@ def load_all_relevant_extractions(c) -> list[tuple[dict, dict]]:
     return out
 
 
+MANUAL_COLS = ("owner", "contact_status", "network_note", "manual_grade", "bjdong_cd")
+
+
+def snapshot_manual(c) -> list[dict]:
+    """rebuild 전에 사람이 입력한 것(담당·상태·메모·수동등급)과 영업 활동 기록을 회사·지역 키로 떠둔다."""
+    sigs = c.execute(f"""select id, company_norm, sido, sigungu, event_type, {', '.join(MANUAL_COLS)} from signals
+                         where owner is not null or coalesce(contact_status,'none') <> 'none' or network_note is not null
+                            or manual_grade is not null or bjdong_cd is not null""").fetchall()
+    acts = c.execute("select signal_id, actor, kind, content, created_at from signal_activities").fetchall()
+    by_sig: dict = {}
+    for a in acts:
+        by_sig.setdefault(str(a["signal_id"]), []).append(a)
+    out = []
+    for s in sigs:
+        out.append({**s, "activities": by_sig.get(str(s["id"]), [])})
+    # 활동만 있고 수동 필드는 없는 신호
+    have = {str(s["id"]) for s in sigs}
+    for sid, lst in by_sig.items():
+        if sid not in have:
+            r = c.execute("select id, company_norm, sido, sigungu, event_type from signals where id = %s", (sid,)).fetchone()
+            if r:
+                out.append({**r, **{k: None for k in MANUAL_COLS}, "activities": lst})
+    return out
+
+
+def restore_manual(c, snap: list[dict]) -> int:
+    """회사(정규화)+시도 가 같은 새 신호에 되돌려 넣는다. 못 찾으면 회사만 같은 신호(유일할 때)."""
+    n = 0
+    for s in snap:
+        rows = c.execute("select id from signals where company_norm = %s and coalesce(sido,'') = coalesce(%s,'')", (s["company_norm"], s["sido"])).fetchall()
+        if len(rows) != 1:
+            rows = c.execute("select id from signals where company_norm = %s", (s["company_norm"],)).fetchall()
+        if len(rows) != 1:
+            continue
+        sid = rows[0]["id"]
+        sets = {k: s.get(k) for k in MANUAL_COLS if s.get(k) not in (None, "none")}
+        if sets:
+            c.execute(f"update signals set {', '.join(f'{k} = %({k})s' for k in sets)} where id = %(id)s", {**sets, "id": sid})
+        for a in s["activities"]:
+            c.execute("insert into signal_activities (signal_id, actor, kind, content, created_at) values (%s,%s,%s,%s,%s)",
+                      (sid, a["actor"], a["kind"], a["content"], a["created_at"]))
+        n += 1
+    return n
+
+
 def wipe_signals(c):
-    c.execute("delete from signal_sources"); c.execute("delete from signals")
+    c.execute("delete from signal_activities"); c.execute("delete from signal_sources"); c.execute("delete from signals")
 
 
 def upsert_signal(c, sig: dict) -> str:

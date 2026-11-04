@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import CompanyCard from "@/components/CompanyCard";
-import { estimateUtility, EVENT_LABEL, GRADE_LABEL, SIZE_LABEL, STAGE_LABEL, STAGE_ORDER, fmtDate, fmtKrw, grade, priority, PRIORITY_LABEL, scoreColor, sidoName, stageIndex } from "@/lib/format";
+import { estimateUtility, CONTACT_LABEL, CONTACT_STATUS, KIND_LABEL, EVENT_LABEL, GRADE_LABEL, SIZE_LABEL, STAGE_LABEL, STAGE_ORDER, fmtDate, fmtKrw, grade, priority, PRIORITY_LABEL, scoreColor, sidoName, stageIndex } from "@/lib/format";
 
 /** 5단계 진행바 — 공시→협약→인허가→착공→준공 (진짜 순서라서 진행바) */
 export function StageBar({ stage, compact = false }) {
@@ -51,6 +51,7 @@ export function SignalList({ signals, selectedId, onSelect }) {
           <span>{EVENT_LABEL[s.event_type]}</span>
           <span className={`g g${grade(s)}`}>{grade(s)}</span>
           {s.stale && <span className="warn">무소식 18개월</span>}
+          {s.contact_status && s.contact_status !== "none" && <span className={`st st-${s.contact_status}`}>{CONTACT_LABEL[s.contact_status]}{s.owner ? ` · ${s.owner}` : ""}</span>}
         </span>
         <StageBar stage={s.stage} compact />
       </span>
@@ -128,7 +129,95 @@ export function PermitList({ signalId, onPermits }) {
   );
 }
 
-export function SignalDetail({ s, onClose, onBack, onFactories, onPermits }) {
+const myName = () => { try { return localStorage.getItem("radar.me") || ""; } catch { return ""; } };
+const saveName = (n) => { try { localStorage.setItem("radar.me", n); } catch {} };
+const fmtWhen = (d) => { const x = new Date(d); return `${String(x.getMonth() + 1).padStart(2, "0")}.${String(x.getDate()).padStart(2, "0")} ${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")}`; };
+
+/** 영업 진행 — 상태(단계 칩), 담당, 인맥 메모, 활동 기록. 이름은 한 번 입력하면 이 브라우저에 기억. */
+export function SalesPanel({ s, onChange }) {
+  const [me, setMe] = useState("");
+  const [data, setData] = useState(null);
+  const [owner, setOwner] = useState("");
+  const [note, setNote] = useState("");
+  const [kind, setKind] = useState("call");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => { setMe(myName()); }, []);
+  useEffect(() => {
+    setData(null); setErr("");
+    fetch(`/api/activity?signal_id=${encodeURIComponent(s.id)}`).then((r) => r.json()).then((d) => { setData(d); setOwner(d.owner ?? ""); setNote(d.network_note ?? ""); }).catch(() => setData({ activities: [] }));
+  }, [s.id]);
+
+  const post = async (body) => {
+    if (!me.trim()) { setErr("먼저 내 이름을 입력하세요."); return; }
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch("/api/activity", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signal_id: s.id, actor: me.trim(), ...body }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "저장 실패");
+      setData(d); setOwner(d.owner ?? ""); setNote(d.network_note ?? "");
+      onChange?.({ owner: d.owner, contact_status: d.contact_status, network_note: d.network_note });
+    } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  const status = data?.contact_status ?? s.contact_status ?? "none";
+  const acts = data?.activities ?? [];
+
+  return (
+    <section className="detail-sec sales">
+      <h3>영업 진행 <small>팀 공용 — 누가 어디까지 했는지</small></h3>
+
+      <div className="me-row">
+        <label>내 이름</label>
+        <input value={me} placeholder="예: 신상언" onChange={(e) => { setMe(e.target.value); saveName(e.target.value); }} />
+      </div>
+
+      <div className="status-chips" role="radiogroup" aria-label="접촉 상태">
+        {CONTACT_STATUS.map((k) => (
+          <button key={k} className={`chip ${k} ${status === k ? "on" : ""}`} disabled={busy} onClick={() => status !== k && post({ status: k })}>{CONTACT_LABEL[k]}</button>
+        ))}
+      </div>
+
+      <div className="kv-edit">
+        <label>담당</label>
+        <input value={owner} placeholder="미배정 — 이름 입력 후 Enter" onChange={(e) => setOwner(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && post({ owner })} onBlur={() => owner !== (data?.owner ?? "") && post({ owner })} />
+        <button className="mini" disabled={busy || owner === me} onClick={() => { setOwner(me); post({ owner: me }); }}>내가 맡기</button>
+      </div>
+      <div className="kv-edit">
+        <label>인맥</label>
+        <input value={note} placeholder="예: ○○이사 → 공장장 동문. 소개 가능" onChange={(e) => setNote(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && post({ network_note: note })} onBlur={() => note !== (data?.network_note ?? "") && post({ network_note: note })} />
+      </div>
+
+      <form className="act-form" onSubmit={(e) => { e.preventDefault(); if (text.trim()) post({ kind, content: text }).then(() => setText("")); }}>
+        <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="기록 종류">
+          <option value="call">전화</option><option value="visit">방문</option><option value="quote">견적</option><option value="note">메모</option>
+        </select>
+        <input value={text} placeholder="예: 구매팀 김과장 통화, 내년 2월 설비 사양 확정 예정" onChange={(e) => setText(e.target.value)} />
+        <button type="submit" disabled={busy || !text.trim()}>기록</button>
+      </form>
+      {err && <p className="form-err">{err}</p>}
+
+      {acts.length > 0 && (
+        <ol className="timeline">
+          {acts.map((a) => (
+            <li key={a.id} className={a.kind}>
+              <span className="tl-when">{fmtWhen(a.created_at)}</span>
+              <span className="tl-kind">{KIND_LABEL[a.kind] ?? a.kind}</span>
+              <span className="tl-body"><b>{a.actor ?? "?"}</b> {a.content}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {data && acts.length === 0 && <p className="hint">아직 기록 없음. 전화 한 통도 적어두면 다음 사람이 두 번 안 합니다.</p>}
+    </section>
+  );
+}
+
+export function SignalDetail({ s, onClose, onBack, onFactories, onPermits, onSalesChange }) {
   const g = grade(s);
   const p = priority(s.relevance_score);
   return (
@@ -180,6 +269,7 @@ export function SignalDetail({ s, onClose, onBack, onFactories, onPermits }) {
           </dl>); })()}
       </section>
 
+      <SalesPanel s={s} onChange={(patch) => onSalesChange?.(s.id, patch)} />
       <FactoryList name={s.company_name} onFactories={onFactories} />
       <PermitList signalId={s.id} onPermits={onPermits} />
 
@@ -202,10 +292,6 @@ export function SignalDetail({ s, onClose, onBack, onFactories, onPermits }) {
         </ul>
       </section>
 
-      <section className="detail-sec muted">
-        <h3>영업 진행</h3>
-        <p>담당 {s.owner ?? "미배정"} · 상태 {s.contact_status === "none" || !s.contact_status ? "미접촉" : s.contact_status}{s.network_note ? ` · ${s.network_note}` : ""}</p>
-      </section>
     </div>
   );
 }

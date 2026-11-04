@@ -1,5 +1,5 @@
 import "./report.css";
-import { EVENT_LABEL, STAGE_LABEL, fmtKrw, priority, sidoName, estimateUtility } from "@/lib/format";
+import { CONTACT_LABEL, EVENT_LABEL, STAGE_LABEL, fmtKrw, priority, sidoName, estimateUtility } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "투자 레이더 주간 보고" };
@@ -13,12 +13,17 @@ async function load(days) {
   const permits = await p.query(`select id, plat_plc, bld_nm, main_purps, arch_gb, tot_area::float as tot_area, pms_day, stcns_sched_day, real_stcns_day, use_apr_day
                                    from permits where tot_area >= 10000 and use_apr_day is null and pms_day >= to_char(now() - interval '365 days', 'YYYYMMDD')
                                    order by pms_day desc limit 25`).then((r) => r.rows).catch(() => []);
+  const inProgress = await p.query(`select s.id, s.company_name, s.sido, s.sigungu, s.owner, s.contact_status, s.network_note, s.relevance_score,
+                                            a.actor, a.kind, a.content, a.created_at
+                                       from signals s left join lateral (select actor, kind, content, created_at from signal_activities where signal_id = s.id order by created_at desc limit 1) a on true
+                                      where not s.archived and (coalesce(s.contact_status,'none') <> 'none' or s.owner is not null)
+                                      order by case s.contact_status when 'quoted' then 0 when 'meeting' then 1 when 'contacted' then 2 when 'planned' then 3 when 'won' then 4 else 5 end, s.relevance_score desc`).then((r) => r.rows).catch(() => []);
   const [all, fresh, docs] = await Promise.all([
     p.query(`select * from v_signals_map where size_class <> 'S' order by relevance_score desc, amount_krw desc nulls last`),
     p.query(`select * from v_signals_map where first_seen_at > now() - ($1 || ' days')::interval and size_class <> 'S' order by relevance_score desc`, [String(days)]),
     p.query(`select count(*)::int as n, count(*) filter (where fetched_at > now() - ($1 || ' days')::interval)::int as recent from raw_documents`, [String(days)]),
   ]);
-  return { all: all.rows.map(num), fresh: fresh.rows.map(num), docs: docs.rows[0], permits };
+  return { all: all.rows.map(num), fresh: fresh.rows.map(num), docs: docs.rows[0], permits, inProgress };
 }
 
 const fmtDate = (d) => { const x = new Date(d); return `${x.getFullYear()}.${String(x.getMonth() + 1).padStart(2, "0")}.${String(x.getDate()).padStart(2, "0")}`; };
@@ -33,7 +38,7 @@ export default async function Report({ searchParams }) {
   const today = new Date();
   if (!data) return <main className="rpt-page"><h1>보고서</h1><p>DB 연결이 없어 보고서를 만들 수 없습니다.</p></main>;
 
-  const { all, fresh, docs, permits } = data;
+  const { all, fresh, docs, permits, inProgress } = data;
   const hot = all.filter((s) => priority(s.relevance_score) === "hot");
   const early = hot.filter((s) => ["disclosure", "mou", "permit"].includes(s.stage));
   const bySido = {};
@@ -84,6 +89,27 @@ export default async function Report({ searchParams }) {
         </table>
         {early.length === 0 && <p className="muted">해당 없음</p>}
       </section>
+
+      {inProgress.length > 0 && (
+        <section>
+          <h2>진행 중인 영업 <small>팀원이 기록한 건 · 상태순</small></h2>
+          <table className="rpt-table">
+            <thead><tr><th>상태</th><th>회사</th><th>지역</th><th>담당</th><th>인맥</th><th>최근 기록</th></tr></thead>
+            <tbody>
+              {inProgress.map((s) => (
+                <tr key={s.id}>
+                  <td><b className={["quoted", "meeting"].includes(s.contact_status) ? "hot" : ""}>{CONTACT_LABEL[s.contact_status ?? "none"]}</b></td>
+                  <td><b>{s.company_name}</b></td>
+                  <td>{sidoName(s.sido)} {s.sigungu ?? ""}</td>
+                  <td>{s.owner ?? "–"}</td>
+                  <td><small>{s.network_note ?? ""}</small></td>
+                  <td><small>{s.content ? `${fmtDate(s.created_at)} ${s.actor ?? ""} — ${s.content}` : "–"}</small></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       <section className="rpt-two">
         <div>

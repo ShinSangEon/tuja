@@ -207,6 +207,7 @@ def cmd_rebuild(a):
         merged = validate.consolidate(cands)
         complexes, regions, cache = db.load_complexes(c), db.load_regions(c), db.load_geocode_cache(c)
         known = set(cache)
+        snap = db.snapshot_manual(c)
         db.wipe_signals(c)
         for s in merged:
             if not s.get("corp_code"):
@@ -217,6 +218,7 @@ def cmd_rebuild(a):
             db.upsert_signal(c, geocode_with_factories(c, s, complexes, regions, cache))
         log.info("factory pins geocoded: %d", geocode_target_factories(c, cache))
         db.save_geocode_cache(c, cache, known)
+        log.info("manual fields/activities restored: %d/%d", db.restore_manual(c, snap), len(snap))
         log.info("rebuild: %d extractions → %d candidates → %d signals", len(cands), len(cands), len(merged))
 
 
