@@ -4,3 +4,4 @@ node_modules/
 .next/
 out/
 __pycache__/
+collector/customers.yaml

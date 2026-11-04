@@ -2,7 +2,7 @@
 
 import { SIDO_LIST, SIZE_SHORT, STAGE_LABEL, STAGE_ORDER, sidoName } from "@/lib/format";
 
-export const DEFAULT_FILTERS = { grades: ["A", "B"], sizes: ["L", "M", "U"], stages: [], sidos: [], minScore: 0, q: "" };
+export const DEFAULT_FILTERS = { grades: ["A", "B"], sizes: ["L", "M", "U"], stages: [], sidos: [], minScore: 0, q: "", customer: false };
 
 function toggle(arr, v) {
   return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
@@ -20,6 +20,9 @@ export default function FilterBar({ value, onChange, bySido = {}, unlocated = 0 
   return (
     <aside className="rail">
       <input className="search" placeholder="회사·업종·지역·산단 검색" value={value.q} onChange={(e) => set({ q: e.target.value })} aria-label="검색" />
+      <button className={`cust-toggle ${value.customer ? "on" : ""}`} onClick={() => set({ customer: !value.customer })}>
+        <span className="cust-dot" />기존 거래처만 보기
+      </button>
 
       <section className="rail-sec">
         <h3>지역별 건수</h3>
@@ -86,6 +89,7 @@ export default function FilterBar({ value, onChange, bySido = {}, unlocated = 0 
         <div className="lg-row"><span className="lg-pin" style={{ background: "#D8321F" }}>85</span><span>빨강 70점+ 즉시 검토</span></div>
         <div className="lg-row"><span className="lg-pin" style={{ background: "#E09A12" }}>55</span><span>호박 40~69 모니터링</span></div>
         <div className="lg-row"><span className="lg-pin" style={{ background: "#8E969B" }}>20</span><span>회색 40 미만</span></div>
+        <div className="lg-row"><span className="lg-pin" style={{ background: "#2457C5" }}>75</span><span>파랑 = 기존 거래처(드라이어 납품 이력)</span></div>
         <div className="lg-row"><span className="lg-pin lg-l">대</span><span>핀 크기 = 투자 규모</span></div>
         <div className="lg-row"><span className="lg-pin lg-c">C</span><span>점선 = 단일 보도(미확인)</span></div>
         <div className="lg-row"><span className="lg-sq" /><span>흰 네모 = 그 회사 기존 등록공장</span></div>

@@ -26,6 +26,7 @@ export default function Page() {
     if (filters.sidos.length) p.set("sido", filters.sidos.join(","));
     if (filters.minScore) p.set("minScore", String(filters.minScore));
     if (filters.q) p.set("q", filters.q);
+    if (filters.customer) p.set("customer", "1");
     return p.toString();
   }, [filters]);
 

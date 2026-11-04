@@ -43,3 +43,5 @@
   .rpt-two { break-inside: avoid; }
 }
 @media (max-width: 800px) { .rpt-two { grid-template-columns: 1fr; } .rpt-head { flex-direction: column; } }
+.rpt-page .cust { color: #2457C5; }
+.rpt-page .cust-tag { display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 3px; background: #2457C5; color: #fff; font-size: 10px; font-weight: 700; vertical-align: 1px; }

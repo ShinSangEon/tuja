@@ -41,6 +41,7 @@ export default async function Report({ searchParams }) {
   const sidoRows = Object.entries(bySido).sort((a, b) => b[1].n - a[1].n);
   const byStage = Object.fromEntries(Object.keys(STAGE_LABEL).map((k) => [k, all.filter((s) => s.stage === k).length]));
   const totalAmt = all.reduce((a, s) => a + (s.amount_krw ?? 0), 0);
+  const cust = all.filter((s) => s.customer_name);
 
   return (
     <main className="rpt-page">
@@ -58,6 +59,7 @@ export default async function Report({ searchParams }) {
           최근 {days}일 동안 문서 <b>{docs.recent.toLocaleString()}</b>건(누적 {docs.n.toLocaleString()})을 읽어 <b>{fresh.length}</b>건의 투자 건을 새로 포착했습니다.
           현재 추적 중인 건은 <b>{all.length}</b>건, 공개된 투자금액 합계 <b>{fmtKrw(totalAmt)}</b>이며, 그중 즉시 검토 대상이 <b className="hot">{hot.length}</b>건입니다.
           공시·협약·인허가 단계라 설비 발주 전인 건은 <b>{early.length}</b>건으로, 이번 주 접촉 우선순위입니다.
+          {cust.length > 0 && <> 이 중 <b className="cust">{cust.length}</b>건은 드라이어 납품 이력이 있는 <b className="cust">기존 거래처</b>({cust.slice(0, 5).map((s) => s.customer_name).join(", ")}{cust.length > 5 ? " 등" : ""})의 투자입니다.</>}
         </p>
       </section>
 
@@ -69,7 +71,7 @@ export default async function Report({ searchParams }) {
             {early.slice(0, 12).map((s, i) => { const e = estimateUtility(s); return (
               <tr key={s.id}>
                 <td>{i + 1}</td>
-                <td><b>{s.company_name}</b>{s.company_group ? <small> {s.company_group}</small> : null}</td>
+                <td><b>{s.company_name}</b>{s.customer_name ? <span className="cust-tag">고객</span> : null}{s.company_group ? <small> {s.company_group}</small> : null}</td>
                 <td>{sidoName(s.sido)} {s.sigungu ?? ""}</td>
                 <td>{EVENT_LABEL[s.event_type]}<br /><small>{s.sector ?? ""}{s.process_hint ? ` · ${s.process_hint}` : ""}</small></td>
                 <td>{STAGE_LABEL[s.stage]}<br /><small>{s.period_start ?? "?"}→{s.period_end ?? "?"}</small></td>
@@ -110,7 +112,7 @@ export default async function Report({ searchParams }) {
               <li key={s.id}>
                 <span className={`pri ${priority(s.relevance_score)}`}>{s.relevance_score}</span>
                 <div>
-                  <b>{s.company_name}</b> · {sidoName(s.sido)} {s.sigungu ?? ""} · {EVENT_LABEL[s.event_type]} · {STAGE_LABEL[s.stage]} · {fmtKrw(s.amount_krw)} · 등급 {g(s)} · 출처 {s.source_count}건
+                  <b>{s.company_name}</b>{s.customer_name ? <span className="cust-tag">고객</span> : null} · {sidoName(s.sido)} {s.sigungu ?? ""} · {EVENT_LABEL[s.event_type]} · {STAGE_LABEL[s.stage]} · {fmtKrw(s.amount_krw)} · 등급 {g(s)} · 출처 {s.source_count}건
                   <div className="rpt-summary">{s.summary}</div>
                 </div>
               </li>
@@ -149,7 +151,7 @@ export default async function Report({ searchParams }) {
             {all.map((s) => (
               <tr key={s.id}>
                 <td className={`num pri-${priority(s.relevance_score)}`}>{s.relevance_score}</td>
-                <td>{s.company_name}</td><td>{sidoName(s.sido)} {s.sigungu ?? ""}</td><td>{EVENT_LABEL[s.event_type]}</td><td>{STAGE_LABEL[s.stage]}</td>
+                <td>{s.company_name}{s.customer_name ? <span className="cust-tag">고객</span> : null}</td><td>{sidoName(s.sido)} {s.sigungu ?? ""}</td><td>{EVENT_LABEL[s.event_type]}</td><td>{STAGE_LABEL[s.stage]}</td>
                 <td className="num">{fmtKrw(s.amount_krw)}</td><td className="grade">{g(s)}</td><td className="num">{s.source_count}</td>
               </tr>
             ))}

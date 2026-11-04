@@ -1,0 +1,5 @@
+# 실제 거래처 목록은 collector/customers.yaml (git 에 올리지 않음 — 저장소가 공개라 고객 명단은 PC 에만 둔다).
+# 형식 예시:
+customers:
+  - { name: 예시전자, aliases: [예시일렉트로닉스], sites: [창원, 아산], note: 드라이어 납품 }
+  - { name: 샘플화학 }

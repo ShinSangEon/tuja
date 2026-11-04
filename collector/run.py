@@ -26,6 +26,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import companies
+import customers
 import db
 import extract
 import factories
@@ -118,6 +119,7 @@ def cmd_ingest(a):
         with db.conn() as c:
             docs = {str(d["id"]): d for d in db.pending_documents(c, limit=5000)}
             aliases = db.load_aliases(c)
+            cust = customers.Matcher(c)
             cands = []
             for doc_id, r in by_id.items():
                 d = docs.get(doc_id)
@@ -140,6 +142,7 @@ def cmd_ingest(a):
                     continue  # 출처 추가 없음 → 변화 없음
                 if not s.get("lat") or s.get("geocode_status") in (None, "pending", "unlocated", "fallback_region", "fallback_complex"):
                     s = geocode_with_factories(c, s, complexes, regions, cache)
+                s["customer_name"] = cust.match(s.get("company_norm"), s.get("company_group"))
                 db.upsert_signal(c, s)
                 n_new += 0 if s.get("_id") else 1
                 n_upd += 1 if s.get("_id") else 0
@@ -195,6 +198,7 @@ def cmd_rebuild(a):
     """signals 를 비우고 extractions 전체로 다시 만든다. 수동 입력(owner, manual_grade 등)은 사라진다."""
     with db.conn() as c:
         aliases = db.load_aliases(c)
+        cust = customers.Matcher(c)
         cands = []
         for payload, d in db.load_all_relevant_extractions(c):
             cand = validate.candidate_from_extraction(payload, d, aliases)
@@ -209,6 +213,7 @@ def cmd_rebuild(a):
                 r = c.execute("select corp_code from corp_codes where name_norm = %s", (s["company_norm"],)).fetchone()
                 if r:
                     s["corp_code"] = r["corp_code"]
+            s["customer_name"] = cust.match(s.get("company_norm"), s.get("company_group"))
             db.upsert_signal(c, geocode_with_factories(c, s, complexes, regions, cache))
         log.info("factory pins geocoded: %d", geocode_target_factories(c, cache))
         db.save_geocode_cache(c, cache, known)
@@ -304,6 +309,13 @@ def cmd_purge_bodies(_a):
         log.info("purged %d bodies", db.purge_bodies(c))
 
 
+def cmd_load_customers(_a):
+    """collector/customers.yaml → customers 테이블. 이후 rebuild 로 signals.customer_name 반영."""
+    import customers
+    with db.conn() as c:
+        log.info("customers loaded: %d", customers.load_yaml(c))
+
+
 def cmd_alias(a):
     """사명 별칭 등록: 이전 추출에서 '사명 미확인' 으로 잡힌 건을 실제 사명으로 합칠 때.
     예) python run.py alias 제천투자협약기업 바이오파마코리아  → rebuild 하면 두 건이 하나로 병합된다."""
@@ -330,6 +342,7 @@ def main():
     p = sub.add_parser("refresh-corpcodes"); p.add_argument("--csv"); p.set_defaults(fn=cmd_refresh_corpcodes)
     p = sub.add_parser("purge-bodies"); p.set_defaults(fn=cmd_purge_bodies)
     p = sub.add_parser("alias"); p.add_argument("alias"); p.add_argument("canonical"); p.set_defaults(fn=cmd_alias)
+    p = sub.add_parser("load-customers"); p.set_defaults(fn=cmd_load_customers)
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     if not DATABASE_URL and a.cmd in ("collect", "ingest"):

@@ -43,6 +43,7 @@ export function SignalList({ signals, selectedId, onSelect }) {
       <span className="row-main">
         <span className="row-title">
           <b>{s.company_name}</b>
+          {s.customer_name && <span className="cust-badge" title={`기존 거래처: ${s.customer_name}`}>고객</span>}
           <span className="row-loc">{sidoName(s.sido)} {s.sigungu ?? ""}</span>
         </span>
         <span className="row-sub">
@@ -144,6 +145,11 @@ export function SignalDetail({ s, onClose, onBack, onFactories, onPermits }) {
           <div className="detail-loc">{s.sido ?? "위치 미상"} {s.sigungu ?? ""}{s.industrial_complex ? ` · ${s.industrial_complex}` : ""}</div>
         </div>
       </div>
+      {s.customer_name && (
+        <div className="cust-banner">
+          <b>기존 거래처</b> — {s.customer_name}{s.customer_sites ? ` (${s.customer_sites})` : ""}{s.customer_note ? ` · ${s.customer_note}` : ""}. 드라이어 납품·견적 이력이 있으니 담당자 연락처부터 확인.
+        </div>
+      )}
 
       <p className="verdict">
         <b style={{ color: scoreColor(s.relevance_score) }}>{PRIORITY_LABEL[p]}</b> · {EVENT_LABEL[s.event_type]} · {SIZE_LABEL[s.size_class]} · {GRADE_LABEL[g]}{s.manual_grade ? " (수동)" : ""}

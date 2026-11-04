@@ -17,6 +17,7 @@ export async function GET(req) {
     const sidos = (p.get('sido') ?? '').split(',').filter(Boolean);
     const minScore = Number(p.get('minScore') ?? 0);
     const q = (p.get('q') ?? '').trim();
+    const customerOnly = p.get('customer') === '1';
 
     let rows;
     let source = 'sample';
@@ -36,10 +37,13 @@ export async function GET(req) {
     // 지역을 뺀 나머지 조건
     const base = rows.filter((s) => {
         const g = s.effective_grade ?? s.manual_grade ?? s.grade;
-        if (grades.length && !grades.includes(g)) return false;
-        if (sizes.length && !sizes.includes(s.size_class)) return false;
+        if (customerOnly && !s.customer_name) return false;
         if (stages.length && !stages.includes(s.stage)) return false;
-        if (s.relevance_score < minScore) return false;
+        if (!q) { // 검색어가 있으면 '그 회사를 보여달라'는 뜻 → 등급·규모·점수 필터는 건너뜀
+            if (grades.length && !grades.includes(g)) return false;
+            if (sizes.length && !sizes.includes(s.size_class)) return false;
+            if (s.relevance_score < minScore) return false;
+        }
         if (q) {
             const hay = `${s.company_name} ${s.summary ?? ''} ${s.sector ?? ''} ${s.sigungu ?? ''} ${s.industrial_complex ?? ''}`.toLowerCase();
             if (!hay.includes(q.toLowerCase())) return false;

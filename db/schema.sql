@@ -80,6 +80,8 @@ create table if not exists signals (
   manual_grade  char(1),                        -- 사람이 승격/강등
   confidence    numeric(3,2),
   source_count  int not null default 1,
+  bjdong_cd     text,                          -- 좌표의 법정동코드 10자리 (건축허가 조회용)
+  customer_name text,                          -- 기존 거래처면 customers.name
   -- 수명
   first_seen_at timestamptz not null default now(),
   last_seen_at  timestamptz not null default now(),
@@ -158,14 +160,25 @@ begin new.updated_at = now(); return new; end $$;
 drop trigger if exists signals_updated_at on signals;
 create trigger signals_updated_at before update on signals for each row execute function set_updated_at();
 
--- 대시보드가 읽는 뷰
+-- 기존 거래처 (collector/customers.yaml → run.py load-customers)
+create table if not exists customers (
+  name text primary key,
+  name_norm text not null,
+  aliases text[] not null default '{}',
+  sites text, note text,
+  updated_at timestamptz not null default now()
+);
+
+-- 대시보드가 읽는 뷰 (컬럼이 바뀌면 db.py 가 drop 후 다시 만든다)
 create or replace view v_signals_map as
 select s.*,
        coalesce(s.manual_grade, s.grade) as effective_grade,
+       cu.sites as customer_sites, cu.note as customer_note,
        (select json_agg(json_build_object('title', d.title, 'url', d.url, 'source', d.source_name,
                                           'tier', d.source_tier, 'published_at', d.published_at)
                         order by d.source_tier, d.published_at desc)
           from signal_sources ss join raw_documents d on d.id = ss.document_id
          where ss.signal_id = s.id) as sources
   from signals s
+  left join customers cu on cu.name = s.customer_name
  where not s.archived;

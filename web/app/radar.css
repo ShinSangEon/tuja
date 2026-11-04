@@ -216,3 +216,10 @@
 .radar .hint { margin: 6px 0 0; font-size: 12px; color: var(--ink-3); }
 .radar .lg-sq { width: 12px; height: 12px; margin: 0 7px; background: #fff; border: 1.5px solid var(--ink); box-shadow: inset 0 0 0 2.5px #fff, inset 0 0 0 6px var(--ink); flex: none; }
 .radar .lg-tri { width: 0; height: 0; margin: 0 7px; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 12px solid #E09A12; flex: none; }
+
+/* 기존 거래처 */
+.radar .cust-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 3px; background: #2457C5; color: #fff; font-size: 10.5px; font-weight: 700; vertical-align: 1px; }
+.radar .cust-banner { margin: -2px 0 12px; padding: 9px 12px; border-left: 4px solid #2457C5; background: #EAF0FB; color: #1B3F8F; font-size: 13px; line-height: 1.45; border-radius: 0 4px 4px 0; }
+.radar .cust-toggle { display: flex; align-items: center; gap: 7px; width: 100%; margin-top: 8px; padding: 7px 10px; border: 1.5px solid var(--line); background: #fff; border-radius: var(--r); font-size: 12.5px; color: var(--ink-2); }
+.radar .cust-toggle.on { border-color: #2457C5; background: #EAF0FB; color: #1B3F8F; font-weight: 700; }
+.radar .cust-dot { width: 12px; height: 12px; border-radius: 50%; background: #2457C5; border: 2px solid var(--ink); flex: none; }

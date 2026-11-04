@@ -19,8 +19,18 @@ SIGNAL_COLS = [
     "amount_krw", "amount_disclosed", "amount_conflict", "period_start", "period_end", "floor_area_m2", "size_class",
     "sido", "sigungu", "industrial_complex", "address_raw", "location_precision", "lat", "lng", "geocode_status",
     "sector", "process_hint", "need_compressed_air", "need_dryer", "need_hmi", "need_rationale", "relevance_score",
-    "grade", "confidence", "source_count",
+    "grade", "confidence", "source_count", "customer_name",
 ]
+
+# 기존 DB 에 새 컬럼·테이블을 더하는 마이그레이션 (멱등). 뷰는 s.* 를 쓰므로 컬럼이 늘면 다시 만들어야 한다.
+MIGRATE_SQL = """
+alter table signals add column if not exists bjdong_cd text;
+alter table signals add column if not exists customer_name text;
+create table if not exists customers (
+  name text primary key, name_norm text not null, aliases text[] not null default '{}',
+  sites text, note text, updated_at timestamptz not null default now());
+"""
+VIEW_COLS_REQUIRED = ("customer_name", "customer_sites", "bjdong_cd")
 
 
 SCHEMA_SQL = Path(__file__).parent.parent / "db" / "schema.sql"
@@ -30,6 +40,16 @@ def ensure_schema(c) -> bool:
     """signals 테이블이 없으면 db/schema.sql 을 실행해 테이블·뷰를 만든다. (첫 접속 때 1회)"""
     exists = c.execute("select to_regclass('public.signals') as t").fetchone()["t"]
     if exists:
+        c.execute(MIGRATE_SQL)
+        have = {r["column_name"] for r in c.execute("select column_name from information_schema.columns where table_name = 'v_signals_map'")}
+        if not all(k in have for k in VIEW_COLS_REQUIRED):
+            sql = SCHEMA_SQL.read_text(encoding="utf-8")
+            view = sql[sql.index("create or replace view v_signals_map"):]
+            view = view[: view.index(";") + 1]
+            c.execute("drop view if exists v_signals_map")
+            c.execute(view)
+            logging.getLogger("db").info("v_signals_map 뷰 재생성")
+        c.commit()
         return False
     c.execute(SCHEMA_SQL.read_text(encoding="utf-8"))
     c.commit()

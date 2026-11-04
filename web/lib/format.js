@@ -68,15 +68,18 @@ const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
  * 마커 SVG (data URI). 원 안에 점수, 크기=규모, 색=우선순위, 테두리=등급(A 굵은 먹색 / B 가는 먹색 / C 점선).
  * 70점 이상은 회사명 라벨을 오른쪽에 붙인다. 반환: { src, width, height, offsetX, offsetY }
  */
+export const CUSTOMER_COLOR = "#2457C5"; // 기존 거래처(드라이어 납품 이력) = 파랑
+
 export function markerImage(s, selected = false) {
   const d = sizeRadius(s.size_class);
-  const color = scoreColor(s.relevance_score);
+  const isCust = !!s.customer_name;
+  const color = isCust ? CUSTOMER_COLOR : scoreColor(s.relevance_score);
   const g = grade(s);
   const p = priority(s.relevance_score);
   const strokeW = g === "A" ? 3 : 2;
   const dash = g === "C" ? ` stroke-dasharray="3 2"` : "";
   const ring = selected ? 8 : 0;
-  const label = p === "hot" ? String(s.company_name).replace(/^\(주\)|^㈜|^주식회사\s*/, "").slice(0, 10) : "";
+  const label = p === "hot" || isCust ? String(s.company_name).replace(/^\(주\)|^㈜|^주식회사\s*/, "").slice(0, 10) : "";
   const fontPx = d >= 30 ? 13 : d >= 25 ? 12 : 10;
   const labelW = label ? Math.min(150, 14 + label.length * 12.5) : 0;
   const W = d + ring * 2 + 4 + (label ? labelW + 6 : 0);
@@ -86,7 +89,7 @@ export function markerImage(s, selected = false) {
   ${selected ? `<circle cx="${cx}" cy="${cy}" r="${d / 2 + ring - 1}" fill="${color}" fill-opacity="0.18" stroke="${color}" stroke-width="1.5"/>` : ""}
   <circle cx="${cx}" cy="${cy}" r="${d / 2}" fill="${color}" stroke="#16211F" stroke-width="${strokeW}"${dash}/>
   <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-family="Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" font-size="${fontPx}" font-weight="800" fill="#fff">${s.relevance_score}</text>
-  ${label ? `<rect x="${cx + d / 2 + 3}" y="${cy - 11}" width="${labelW}" height="22" rx="4" fill="#16211F" fill-opacity="0.9"/>
+  ${label ? `<rect x="${cx + d / 2 + 3}" y="${cy - 11}" width="${labelW}" height="22" rx="4" fill="${isCust ? CUSTOMER_COLOR : "#16211F"}" fill-opacity="0.92"/>
   <text x="${cx + d / 2 + 10}" y="${cy}" dominant-baseline="central" font-family="Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" font-size="12" font-weight="700" fill="#fff">${esc(label)}</text>` : ""}
 </svg>`;
   return { src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, width: W, height: H, offsetX: cx, offsetY: cy };
