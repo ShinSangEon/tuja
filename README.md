@@ -60,6 +60,7 @@ docs/                      설계·스키마·검증규칙·비용·운영·매�
 - [ ] GENEQ 계정 3개 생성 → Neon schema.sql, Vercel 배포, 카카오 키
 - [x] 실제 키로 첫 collect → 추출 4회(약 70건 신호) 검수 완료
 - [x] 기사 본문 수집(Bing 경유 원문), DART 회사 카드, 등록공장 레이어(22만 건), 주간 보고(/report)
-- [ ] Vercel 환경변수 `DART_API_KEY` (검색창 DART 조회), 공공데이터포털 `DATA_GO_KR_KEY` (건축허가)
+- [x] 건축HUB 건축허가 레이어 (같은 법정동 최근 1년, 지도 삼각 핀)
+- [ ] Vercel 환경변수 `DART_API_KEY` (검색창 DART 조회)
 - [ ] 지자체 보도자료 소스 등록 (sources.yaml)
 - [ ] 영업 액션 레이어 (담당자·접촉 상태·네트워크 메모) — Phase 2

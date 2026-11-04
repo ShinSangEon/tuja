@@ -88,6 +88,8 @@ export default function FilterBar({ value, onChange, bySido = {}, unlocated = 0 
         <div className="lg-row"><span className="lg-pin" style={{ background: "#8E969B" }}>20</span><span>회색 40 미만</span></div>
         <div className="lg-row"><span className="lg-pin lg-l">대</span><span>핀 크기 = 투자 규모</span></div>
         <div className="lg-row"><span className="lg-pin lg-c">C</span><span>점선 = 단일 보도(미확인)</span></div>
+        <div className="lg-row"><span className="lg-sq" /><span>흰 네모 = 그 회사 기존 등록공장</span></div>
+        <div className="lg-row"><span className="lg-tri" /><span>주황 삼각 = 같은 동네 공장 건축허가</span></div>
       </section>
     </aside>
   );

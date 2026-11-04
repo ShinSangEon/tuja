@@ -14,7 +14,7 @@ Claude API 를 쓰지 않는다. 추출은 **이 Claude 세션에서** 한다. �
 ③ ingest     python run.py ingest out/extracted-N.json   → 검증·병합·지오코딩(등록공장 좌표 우선) → signals
 ④ rebuild    python run.py rebuild                       → 전체 추출을 다시 병합 (별칭 등록·규칙 수정 후 필수)
 ⑤ companies  python run.py companies                     → 신규 상장사 DART 재무·종업원·생산설비 카드 갱신
-⑥ permits    python run.py permits                       → (DATA_GO_KR_KEY 있을 때만) 신호 지역 공장 건축허가
+⑥ permits    python run.py permits                       → 신호 좌표의 법정동별 최근 1년 공장·창고 건축허가(건축HUB) + 지오코딩
 ⑦ 확인       https://tuja-72tc.vercel.app  /  /report (주간 보고)
 ```
 

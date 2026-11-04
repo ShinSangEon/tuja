@@ -14,7 +14,9 @@ const CLUSTER_STYLES = [
 
 const FACTORY_PIN = `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="6.5" fill="#fff" fill-opacity="0.85" stroke="#16211F" stroke-width="1.5"/><rect x="6" y="6" width="6" height="6" fill="#16211F"/></svg>')}`;
 
-export default function KakaoMap({ signals, selectedId, onSelect, focus, factories = [] }) {
+const PERMIT_PIN = `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><polygon points="9,2 16,15 2,15" fill="#E09A12" fill-opacity="0.9" stroke="#16211F" stroke-width="1.5" stroke-linejoin="round"/></svg>')}`;
+
+export default function KakaoMap({ signals, selectedId, onSelect, focus, factories = [], permits = [] }) {
   const appkey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY ?? "";
   const [loading, error] = useKakaoLoader({ appkey, libraries: ["clusterer"] });
   const located = useMemo(() => signals.filter((s) => s.lat != null && s.lng != null), [signals]);
@@ -55,6 +57,9 @@ export default function KakaoMap({ signals, selectedId, onSelect, focus, factori
           );
         })}
       </MarkerClusterer>
+      {permits.filter((p) => p.lat != null).map((p) => (
+        <MapMarker key={`p${p.id}`} position={{ lat: p.lat, lng: p.lng }} image={{ src: PERMIT_PIN, size: { width: 18, height: 18 } }} title={`건축허가 · ${p.arch_gb ?? ""} ${p.main_purps ?? ""} ${p.tot_area ? Math.round(p.tot_area) + "㎡" : ""} · ${p.bld_nm ?? ""} ${p.plat_plc ?? ""}`} zIndex={0} />
+      ))}
       {factories.filter((f) => f.lat != null).map((f) => (
         <MapMarker key={`f${f.id}`} position={{ lat: f.lat, lng: f.lng }} image={{ src: FACTORY_PIN, size: { width: 18, height: 18 } }} title={`기존 공장 · ${f.complex ?? "개별입지"} · ${f.address ?? ""}`} zIndex={0} />
       ))}

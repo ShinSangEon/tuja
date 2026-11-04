@@ -92,7 +92,42 @@ export function FactoryList({ name, onFactories }) {
   );
 }
 
-export function SignalDetail({ s, onClose, onBack, onFactories }) {
+
+const fmtDay = (d) => (d && d.length === 8 ? `${d.slice(2, 4)}.${d.slice(4, 6)}.${d.slice(6)}` : "");
+const fmtArea = (a) => (a ? `${Math.round(a).toLocaleString()}㎡` : "");
+
+/** 같은 법정동의 최근 1년 공장·창고 건축허가 — 착공 임박 현장 = 유틸리티 발주 임박. */
+export function PermitList({ signalId, onPermits }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    if (!signalId) return;
+    setRows(null);
+    fetch(`/api/permits?signal_id=${encodeURIComponent(signalId)}`).then((r) => r.json()).then((d) => { setRows(d.permits ?? []); onPermits?.(d.permits ?? []); }).catch(() => setRows([]));
+    return () => onPermits?.([]);
+  }, [signalId]);
+  if (!rows || rows.length === 0) return null;
+  const phase = (p) => (p.use_apr_day ? "사용승인" : p.real_stcns_day ? "착공" : p.stcns_sched_day ? "착공예정" : "허가");
+  return (
+    <section className="detail-sec">
+      <h3>같은 동네 공장 건축허가 {rows.length}건 <small>건축HUB · 최근 1년 · 연면적 300㎡ 이상</small></h3>
+      <ul className="permits">
+        {rows.map((p) => (
+          <li key={p.id}>
+            <span className={`pm-phase pm-${p.use_apr_day ? "done" : p.real_stcns_day ? "build" : "pms"}`}>{phase(p)}</span>
+            <span className="pm-main">
+              <b>{p.arch_gb ?? ""} {p.main_purps ?? "공장용지"} {fmtArea(p.tot_area)}</b>
+              <small>{p.bld_nm ? `${p.bld_nm} · ` : ""}{(p.plat_plc ?? "").replace(/^(.*?(시|군|구)\s)/, "")}</small>
+            </span>
+            <span className="pm-day">{fmtDay(p.real_stcns_day || p.stcns_sched_day || p.pms_day)}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="hint">허가→착공 사이가 압축기·드라이어 사양 결정 시점. 건물명에 회사명이 보이면 바로 연락.</p>
+    </section>
+  );
+}
+
+export function SignalDetail({ s, onClose, onBack, onFactories, onPermits }) {
   const g = grade(s);
   const p = priority(s.relevance_score);
   return (
@@ -140,6 +175,7 @@ export function SignalDetail({ s, onClose, onBack, onFactories }) {
       </section>
 
       <FactoryList name={s.company_name} onFactories={onFactories} />
+      <PermitList signalId={s.id} onPermits={onPermits} />
 
       <CompanyCard corpCode={s.corp_code} currentSignalId={s.id} />
 

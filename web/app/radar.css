@@ -202,3 +202,17 @@
 .radar .est-note { grid-column: 1 / -1; color: var(--ink-3); font-size: 11.5px; }
 
 .radar .brief-link { margin-left: 14px; color: var(--ink); font-weight: 700; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+
+/* 건축허가 목록 */
+.radar .permits { list-style: none; margin: 0; padding: 0; }
+.radar .permits li { display: grid; grid-template-columns: 52px 1fr 54px; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line-2); font-size: 12.5px; align-items: start; }
+.radar .pm-phase { font-size: 11px; font-weight: 700; padding: 2px 0; text-align: center; border-radius: 3px; background: var(--line-2); color: var(--ink-2); }
+.radar .pm-phase.pm-build { background: var(--hot); color: #fff; }
+.radar .pm-phase.pm-done { background: var(--ink-3); color: #fff; }
+.radar .pm-main { display: flex; flex-direction: column; min-width: 0; }
+.radar .pm-main b { font-weight: 600; }
+.radar .pm-main small { color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radar .pm-day { color: var(--ink-2); text-align: right; font-feature-settings: "tnum"; }
+.radar .hint { margin: 6px 0 0; font-size: 12px; color: var(--ink-3); }
+.radar .lg-sq { width: 12px; height: 12px; margin: 0 7px; background: #fff; border: 1.5px solid var(--ink); box-shadow: inset 0 0 0 2.5px #fff, inset 0 0 0 6px var(--ink); flex: none; }
+.radar .lg-tri { width: 0; height: 0; margin: 0 7px; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 12px solid #E09A12; flex: none; }
