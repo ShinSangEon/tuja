@@ -72,8 +72,9 @@ def grade(sources: list[dict], confidence: float | None) -> str:
         g = "A"
     else:
         distinct_t2 = {s["source_name"] for s in sources if s["tier"] <= 2}
-        if len(distinct_t2) >= 2:
-            g = "B"
+        distinct_all = {s["source_name"] for s in sources if s["source_name"] not in ("MSN",)}  # MSN 은 재전송이라 독립 매체로 안 침
+        if len(distinct_t2) >= 2 or len(distinct_all) >= 4:
+            g = "B"  # 주요 언론 2곳, 또는 서로 다른 매체 4곳 이상이 독립 보도
     if confidence is not None and confidence < 0.5:
         g = {"A": "B", "B": "C", "C": "C"}[g]
     return g
@@ -183,8 +184,11 @@ def merge(base: dict, new: dict) -> dict:
         for k in ("summary", "purpose", "company_name"):
             if new.get(k):
                 out[k] = new.get(k)
-    if "미확인" in (out.get("company_name") or "") and new.get("company_name") and "미확인" not in new["company_name"]:
-        out["company_name"] = new["company_name"]  # 사명 미확인 → 실제 사명으로
+    if "미확인" in (out.get("company_name") or ""):  # 사명 미확인 → 어느 쪽이든 실제 사명이 있으면 그걸로
+        for cand in (new.get("company_name"), base.get("company_name")):
+            if cand and "미확인" not in cand:
+                out["company_name"] = cand
+                break
     # 빈 값 채우기
     for k in ("corp_code", "company_group", "listed", "period_start", "period_end", "floor_area_m2", "sector", "process_hint", "need_rationale"):
         if not out.get(k) and new.get(k):

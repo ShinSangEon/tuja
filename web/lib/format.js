@@ -5,7 +5,7 @@ export const STAGE_LABEL = { disclosure: "공시", mou: "투자협약", permit: 
 export const EVENT_LABEL = { new_plant: "신공장", expansion: "증설", retrofit: "개조·스마트화", equipment: "설비투자", relocation: "이전", other: "기타" };
 export const SIZE_LABEL = { S: "소규모 · 50억 미만", M: "중규모 · 50~500억", L: "대규모 · 500억 이상", U: "규모 미상" };
 export const SIZE_SHORT = { S: "소", M: "중", L: "대", U: "?" };
-export const GRADE_LABEL = { A: "공식 출처", B: "교차 확인", C: "단일 보도" };
+export const GRADE_LABEL = { A: "공식 출처", B: "교차 확인", C: "미확인 보도" };
 // collector/config.py TIER2_PRESS 와 맞춰 둘 것
 export const TIER2_PRESS = ["연합뉴스","뉴시스","뉴스1","한국경제","매일경제","서울경제","머니투데이","아시아경제","이데일리","전자신문","조선비즈","중앙일보","동아일보","경향신문","한겨레","파이낸셜뉴스","헤럴드경제","KBS","MBC","SBS","YTN","연합인포맥스","부산일보","국제신문","경남신문","경남일보","경남도민일보","매일신문","영남일보","경북일보","경상일보","울산매일","대전일보","중도일보","충청투데이","광주일보","전남일보","전북일보","경인일보","중부일보","인천일보","강원일보"];
 
