@@ -257,3 +257,29 @@
 .radar .logout { display: inline; margin-left: 10px; }
 .radar .logout button { border: none; background: none; color: var(--ink-3); font-size: 12px; cursor: pointer; padding: 0; }
 .radar .logout button:hover { color: var(--ink); text-decoration: underline; }
+
+/* 지도 위 보조 핀 (건축허가·기존공장) — 카카오 CustomOverlay 라 .radar 밖에서도 적용되게 전역 */
+.pm-pin, .fac-pin { position: relative; display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px 3px 4px; border-radius: 999px; border: 1.5px solid #16211F; background: #fff; font: 700 11px/1.3 Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: #16211F; white-space: nowrap; cursor: pointer; box-shadow: 0 1px 2px rgba(22,33,31,.25); transform: translateY(-6px); }
+.pm-pin::after, .fac-pin::after { content: ""; position: absolute; left: 50%; bottom: -7px; width: 8px; height: 8px; background: inherit; border-right: 1.5px solid #16211F; border-bottom: 1.5px solid #16211F; transform: translateX(-50%) rotate(45deg); }
+.pm-pin-k { padding: 1px 5px; border-radius: 999px; background: #E09A12; color: #fff; font-size: 10px; }
+.pm-pin.build .pm-pin-k { background: #D8321F; }
+.pm-pin.sched .pm-pin-k { background: #E09A12; }
+.pm-pin.done .pm-pin-k { background: #8E969B; }
+.pm-pin.pms .pm-pin-k { background: #4A5552; }
+.pm-pin:hover, .fac-pin:hover, .pm-pin.on, .fac-pin.on { background: #16211F; color: #fff; }
+.pm-pin.on::after, .fac-pin.on::after, .pm-pin:hover::after, .fac-pin:hover::after { background: #16211F; }
+.fac-pin { padding: 3px 8px; background: #fff; border-style: dashed; }
+.map-card { position: relative; width: 300px; padding: 12px 14px 10px; background: #fff; border: 1.5px solid #16211F; border-radius: 8px; box-shadow: 0 10px 28px -10px rgba(22,33,31,.45); font-family: Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: #16211F; text-align: left; }
+.map-card::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 14px; height: 14px; background: #fff; border-right: 1.5px solid #16211F; border-bottom: 1.5px solid #16211F; transform: translateX(-50%) rotate(45deg); }
+.map-card-x { position: absolute; top: 6px; right: 8px; border: none; background: none; font-size: 18px; line-height: 1; color: #8E969B; cursor: pointer; }
+.map-card-x:hover { color: #16211F; }
+.map-card-h { margin-bottom: 4px; }
+.map-card-tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; color: #fff; background: #E09A12; }
+.map-card-tag.fac { background: #4A5552; }
+.map-card-t { font-size: 14px; font-weight: 800; margin: 2px 0 8px; padding-right: 18px; }
+.map-card-kv { display: grid; grid-template-columns: 44px 1fr; gap: 3px 8px; margin: 0; font-size: 12px; }
+.map-card-kv dt { color: #8E969B; } .map-card-kv dd { margin: 0; }
+.map-card-note { margin: 8px 0 0; font-size: 10.5px; color: #8E969B; line-height: 1.35; }
+.radar .lg-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; margin: 0 4px; padding: 2px 7px; border: 1.5px solid var(--ink); border-radius: 999px; background: #fff; font-size: 10.5px; font-weight: 700; }
+.radar .lg-chip.dashed { border-style: dashed; }
+.radar .lg-chip i { font-style: normal; padding: 0 4px; border-radius: 999px; background: var(--hot); color: #fff; font-size: 9.5px; }

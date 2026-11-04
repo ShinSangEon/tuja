@@ -92,8 +92,8 @@ export default function FilterBar({ value, onChange, bySido = {}, unlocated = 0 
         <div className="lg-row"><span className="lg-pin" style={{ background: "#2457C5" }}>75</span><span>파랑 = 기존 거래처(드라이어 납품 이력)</span></div>
         <div className="lg-row"><span className="lg-pin lg-l">대</span><span>핀 크기 = 투자 규모</span></div>
         <div className="lg-row"><span className="lg-pin lg-c">C</span><span>점선 = 단일 보도(미확인)</span></div>
-        <div className="lg-row"><span className="lg-sq" /><span>흰 네모 = 그 회사 기존 등록공장</span></div>
-        <div className="lg-row"><span className="lg-tri" /><span>주황 삼각 = 같은 동네 공장 건축허가</span></div>
+        <div className="lg-row"><span className="lg-chip dashed">기존 공장</span><span>선택한 회사의 등록공장 (누르면 생산품·주소)</span></div>
+        <div className="lg-row"><span className="lg-chip"><i>착공</i>증축 4.8만㎡</span><span>같은 동네 건축허가 (누르면 허가일·착공일)</span></div>
       </section>
     </aside>
   );
