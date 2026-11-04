@@ -17,7 +17,7 @@
 .radar .link { background: none; border: 0; padding: 0; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; font-size: 12.5px; }
 
 /* ── 상단 ── */
-.radar .top { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; padding: 12px 20px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.radar .top { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 12px 20px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .radar .brand-name { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
 .radar .brand-sub { margin-left: 12px; color: var(--ink-3); font-size: 13px; }
 .radar .brief { margin: 0; font-size: 14px; color: var(--ink-2); }
@@ -201,7 +201,9 @@
 .radar .est dt { color: var(--ink-3); } .radar .est dd { margin: 0; }
 .radar .est-note { grid-column: 1 / -1; color: var(--ink-3); font-size: 11.5px; }
 
-.radar .brief-link { margin-left: 14px; color: var(--ink); font-weight: 700; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.radar .report-btn { display: inline-flex; align-items: center; gap: 6px; margin-left: 16px; padding: 7px 14px; border-radius: 999px; background: var(--ink); color: #fff; font-weight: 700; font-size: 13px; text-decoration: none; vertical-align: middle; box-shadow: 0 1px 0 rgba(22,33,31,.15); transition: transform .08s, background .15s; }
+.radar .report-btn:hover { background: var(--hot); transform: translateY(-1px); }
+.radar .report-btn:focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; }
 
 /* 건축허가 목록 */
 .radar .permits { list-style: none; margin: 0; padding: 0; }
