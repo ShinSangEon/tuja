@@ -183,6 +183,8 @@ def merge(base: dict, new: dict) -> dict:
         for k in ("summary", "purpose", "company_name"):
             if new.get(k):
                 out[k] = new.get(k)
+    if "미확인" in (out.get("company_name") or "") and new.get("company_name") and "미확인" not in new["company_name"]:
+        out["company_name"] = new["company_name"]  # 사명 미확인 → 실제 사명으로
     # 빈 값 채우기
     for k in ("corp_code", "company_group", "listed", "period_start", "period_end", "floor_area_m2", "sector", "process_hint", "need_rationale"):
         if not out.get(k) and new.get(k):

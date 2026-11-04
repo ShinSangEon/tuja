@@ -2,18 +2,24 @@
 
 Claude API 를 쓰지 않는다. 추출은 **이 Claude 세션에서** 한다. 주인님이 하루 한 번 "레이더 업데이트" 라고 하면 아래가 돈다.
 
-## 흐름
+## 흐름 (2026-11 기준)
 
 ```
-① collect   주인님 PC (또는 Actions) 에서  python run.py collect
-            → DART·뉴스·보도자료 수집 → Neon raw_documents 적재 → out/pending.md 생성
-② extract   Claude 가 out/pending.md 를 읽고 문서마다 JSON 작성 → out/extracted.json
-③ ingest    python run.py ingest out/extracted.json
-            → 교차검증·병합·지오코딩 → Neon signals 갱신
-④ 확인      Vercel 배포 URL (Basic Auth) 새로고침
+① collect    PC:  python run.py collect --since <3일전> --sources news     (~1분, 구글·Bing 뉴스 RSS)
+                  python run.py collect --since <3일전> --sources paper    (지방지 RSS 15개)
+                  python run.py collect --since <3일전> --sources gov      (산업부·정책브리핑 — 타임아웃 잦음, 실패해도 무시)
+                  python run.py collect --since <7일전> --sources dart     (DART 신규시설투자·유형자산취득)
+             → Neon raw_documents 적재 → out/pending.md (관련 가능성 있는 문서만, 본문 3,000자)
+② extract    Claude 가 pending.md 를 읽고 문서마다 JSON → out/extracted-N.json (번호 올려가며 보관)
+③ ingest     python run.py ingest out/extracted-N.json   → 검증·병합·지오코딩(등록공장 좌표 우선) → signals
+④ rebuild    python run.py rebuild                       → 전체 추출을 다시 병합 (별칭 등록·규칙 수정 후 필수)
+⑤ companies  python run.py companies                     → 신규 상장사 DART 재무·종업원·생산설비 카드 갱신
+⑥ permits    python run.py permits                       → (DATA_GO_KR_KEY 있을 때만) 신호 지역 공장 건축허가
+⑦ 확인       https://tuja-72tc.vercel.app  /  /report (주간 보고)
 ```
 
-DB 는 ①③ 에서 수십 초, ④ 에서 조회할 때만 깨어난다. 나머지 시간은 Neon 이 자동으로 재운다.
+한 소스 그룹이 180초를 넘기지 않도록 분리돼 있다. 같은 투자 건이 "사명 미확인" 으로 먼저 잡혔다가 나중에 사명이 밝혀지면
+`python run.py alias 제천투자협약기업 바이오파마코리아` 로 별칭을 등록하고 rebuild 하면 하나로 합쳐진다.
 
 ## 세션에서 실제로 하는 말
 
@@ -47,10 +53,10 @@ DB 는 ①③ 에서 수십 초, ④ 에서 조회할 때만 깨어난다. 나�
 ## 하루 분량 감
 
 - DART 신규시설투자: 하루 0~5건
-- 네이버 뉴스 13개 키워드 × 30건 → 사전필터 후 20~60건
+- 구글·Bing 뉴스 RSS 92개 쿼리 + 지방지 15개 → 사전필터 후 하루 40~150건 (중복 기사 많음)
 - 보도자료 (등록 수에 비례): 0~10건
 
-→ pending.md 는 보통 30~70건, 본문 3,000자 제한이라 한 번에 읽고 추출 가능. 100건이 넘으면 `--since` 를 줄이거나 `NAVER_MAX_PER_KEYWORD` 를 20으로.
+→ pending.md 는 보통 50~150건. 같은 건을 다룬 기사가 많아 실제 투자 건은 20~40개. 너무 많으면 `--since` 를 줄인다.
 
 ## 주 1회
 

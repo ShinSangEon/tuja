@@ -15,7 +15,8 @@
 
 ```
 collector/ (Python)
-  ├─ run.py collect        DART·네이버뉴스·보도자료 수집 → Neon raw_documents → out/pending.md
+  ├─ run.py collect        DART·구글/Bing뉴스·지방지·정부 보도자료 수집 → Neon raw_documents → out/pending.md
+  ├─ run.py rebuild        전체 추출 재병합 / companies: DART 회사 카드 / permits: 건축허가 / alias: 사명 별칭
   │     (Claude 세션이 pending.md 읽고 out/extracted.json 작성)
   ├─ run.py ingest         extracted.json → 교차검증·병합·지오코딩 → Neon signals
   ├─ sources/              dart.py / naver_news.py / press.py (+ sources.yaml)
@@ -57,6 +58,8 @@ docs/                      설계·스키마·검증규칙·비용·운영·매�
 - [x] 세션 추출용 지시문 + extracted.json 검증 + ingest (병합·지오코딩·DB) — 파일 모드로 테스트 완료
 - [x] Next.js 대시보드 + Basic Auth (빌드·인증·API 필터 테스트 완료)
 - [ ] GENEQ 계정 3개 생성 → Neon schema.sql, Vercel 배포, 카카오 키
-- [ ] 실제 키로 첫 collect → 추출 품질 검수 20건
+- [x] 실제 키로 첫 collect → 추출 4회(약 70건 신호) 검수 완료
+- [x] 기사 본문 수집(Bing 경유 원문), DART 회사 카드, 등록공장 레이어(22만 건), 주간 보고(/report)
+- [ ] Vercel 환경변수 `DART_API_KEY` (검색창 DART 조회), 공공데이터포털 `DATA_GO_KR_KEY` (건축허가)
 - [ ] 지자체 보도자료 소스 등록 (sources.yaml)
 - [ ] 영업 액션 레이어 (담당자·접촉 상태·네트워크 메모) — Phase 2

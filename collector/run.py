@@ -304,6 +304,16 @@ def cmd_purge_bodies(_a):
         log.info("purged %d bodies", db.purge_bodies(c))
 
 
+def cmd_alias(a):
+    """사명 별칭 등록: 이전 추출에서 '사명 미확인' 으로 잡힌 건을 실제 사명으로 합칠 때.
+    예) python run.py alias 제천투자협약기업 바이오파마코리아  → rebuild 하면 두 건이 하나로 병합된다."""
+    src, dst = validate.normalize_company(a.alias), validate.normalize_company(a.canonical)
+    with db.conn() as c:
+        c.execute("""insert into company_aliases (alias_norm, canonical_norm) values (%s, %s)
+                     on conflict (alias_norm) do update set canonical_norm = excluded.canonical_norm""", (src, dst))
+        log.info("alias %s → %s (rebuild 필요)", src, dst)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -319,6 +329,7 @@ def main():
     p = sub.add_parser("load-factories"); p.add_argument("file"); p.set_defaults(fn=cmd_load_factories)
     p = sub.add_parser("refresh-corpcodes"); p.add_argument("--csv"); p.set_defaults(fn=cmd_refresh_corpcodes)
     p = sub.add_parser("purge-bodies"); p.set_defaults(fn=cmd_purge_bodies)
+    p = sub.add_parser("alias"); p.add_argument("alias"); p.add_argument("canonical"); p.set_defaults(fn=cmd_alias)
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     if not DATABASE_URL and a.cmd in ("collect", "ingest"):
