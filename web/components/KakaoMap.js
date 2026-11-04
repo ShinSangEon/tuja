@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Map, MapMarker, MarkerClusterer, useKakaoLoader } from "react-kakao-maps-sdk";
 import { markerImage, priority } from "@/lib/format";
 
@@ -20,6 +20,15 @@ export default function KakaoMap({ signals, selectedId, onSelect, focus, factori
   const appkey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY ?? "";
   const [loading, error] = useKakaoLoader({ appkey, libraries: ["clusterer"] });
   const located = useMemo(() => signals.filter((s) => s.lat != null && s.lng != null), [signals]);
+  const [map, setMap] = useState(null);
+  // 선택한 신호로 이동: center/level 을 prop 으로 동시에 바꾸면 SDK 가 확대만 하고 이동을 건너뛰는 경우가 있어 직접 제어한다.
+  const fLat = focus?.lat ?? null, fLng = focus?.lng ?? null;
+  useEffect(() => {
+    if (!map || fLat == null || fLng == null || !window.kakao?.maps) return;
+    const ll = new window.kakao.maps.LatLng(Number(fLat), Number(fLng));
+    if (map.getLevel() > 7) map.setLevel(7, { anchor: ll });
+    map.panTo(ll);
+  }, [map, fLat, fLng]);
   const hotIds = useMemo(() => new Set(located.filter((s) => priority(s.relevance_score) === "hot").map((s) => s.id)), [located]);
 
   if (!appkey) {
@@ -34,7 +43,7 @@ export default function KakaoMap({ signals, selectedId, onSelect, focus, factori
   if (loading) return <div className="map-empty"><p>지도 불러오는 중</p></div>;
 
   return (
-    <Map center={focus ?? KOREA_CENTER} level={focus ? 7 : 12} isPanto style={{ width: "100%", height: "100%" }}>
+    <Map center={KOREA_CENTER} level={12} onCreate={setMap} style={{ width: "100%", height: "100%" }}>
       <MarkerClusterer
         averageCenter
         minLevel={7}
