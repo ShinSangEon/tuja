@@ -10,16 +10,21 @@ async function load(days) {
   globalThis.__radarPool ??= new Pool({ connectionString: process.env.DATABASE_URL, max: 2, ssl: { rejectUnauthorized: false } });
   const p = globalThis.__radarPool;
   const num = (r) => ({ ...r, amount_krw: r.amount_krw == null ? null : Number(r.amount_krw) });
+  const permits = await p.query(`select id, plat_plc, bld_nm, main_purps, arch_gb, tot_area::float as tot_area, pms_day, stcns_sched_day, real_stcns_day, use_apr_day
+                                   from permits where tot_area >= 10000 and use_apr_day is null and pms_day >= to_char(now() - interval '365 days', 'YYYYMMDD')
+                                   order by pms_day desc limit 25`).then((r) => r.rows).catch(() => []);
   const [all, fresh, docs] = await Promise.all([
     p.query(`select * from v_signals_map where size_class <> 'S' order by relevance_score desc, amount_krw desc nulls last`),
     p.query(`select * from v_signals_map where first_seen_at > now() - ($1 || ' days')::interval and size_class <> 'S' order by relevance_score desc`, [String(days)]),
     p.query(`select count(*)::int as n, count(*) filter (where fetched_at > now() - ($1 || ' days')::interval)::int as recent from raw_documents`, [String(days)]),
   ]);
-  return { all: all.rows.map(num), fresh: fresh.rows.map(num), docs: docs.rows[0] };
+  return { all: all.rows.map(num), fresh: fresh.rows.map(num), docs: docs.rows[0], permits };
 }
 
 const fmtDate = (d) => { const x = new Date(d); return `${x.getFullYear()}.${String(x.getMonth() + 1).padStart(2, "0")}.${String(x.getDate()).padStart(2, "0")}`; };
 const g = (s) => s.effective_grade ?? s.grade;
+const fmtDay8 = (d) => (d && d.length === 8 ? `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6)}` : "–");
+const shortPlc = (s) => (s ?? "").replace(/^(서울|부산|대구|인천|광주|대전|울산|세종)(특별|광역)?(자치)?시\s|^(경기|강원|충청북|충청남|전라북|전라남|경상북|경상남|제주|전북|강원)(특별자치)?도\s/, "");
 
 export default async function Report({ searchParams }) {
   const sp = await searchParams;
@@ -28,7 +33,7 @@ export default async function Report({ searchParams }) {
   const today = new Date();
   if (!data) return <main className="rpt-page"><h1>보고서</h1><p>DB 연결이 없어 보고서를 만들 수 없습니다.</p></main>;
 
-  const { all, fresh, docs } = data;
+  const { all, fresh, docs, permits } = data;
   const hot = all.filter((s) => priority(s.relevance_score) === "hot");
   const early = hot.filter((s) => ["disclosure", "mou", "permit"].includes(s.stage));
   const bySido = {};
@@ -114,6 +119,28 @@ export default async function Report({ searchParams }) {
         )}
       </section>
 
+      {permits.length > 0 && (
+        <section>
+          <h2>건축허가로 잡힌 대형 공장 공사 <small>레이더 신호 주변 법정동 · 최근 1년 · 연면적 1만㎡ 이상 · 미준공</small></h2>
+          <table className="rpt-table compact">
+            <thead><tr><th>허가일</th><th>구분</th><th>건물명(회사)</th><th>대지위치</th><th>연면적</th><th>착공</th></tr></thead>
+            <tbody>
+              {permits.map((pm) => (
+                <tr key={pm.id}>
+                  <td className="num">{fmtDay8(pm.pms_day)}</td>
+                  <td>{pm.arch_gb ?? ""} {pm.main_purps ?? ""}</td>
+                  <td><b>{pm.bld_nm ?? "–"}</b></td>
+                  <td>{shortPlc(pm.plat_plc)}</td>
+                  <td className="num">{Math.round(pm.tot_area).toLocaleString()}㎡</td>
+                  <td className="num">{pm.real_stcns_day ? <span className="hot">{fmtDay8(pm.real_stcns_day)}</span> : pm.stcns_sched_day ? `예정 ${fmtDay8(pm.stcns_sched_day)}` : "–"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="muted small">건축HUB(국토교통부) 인허가 원장. 뉴스에 안 나와도 허가가 났으면 실제 공사 — 건물명에 회사가 보이면 레이더에 없어도 접촉 대상. 전국이 아니라 레이더 신호가 있는 동네만 조회한 결과.</p>
+        </section>
+      )}
+
       <section>
         <h2>전체 추적 목록 <small>{all.length}건 · 관련도순</small></h2>
         <table className="rpt-table compact">
@@ -132,7 +159,7 @@ export default async function Report({ searchParams }) {
 
       <footer className="rpt-foot">
         <p>읽는 법 — 점수: 업종·공정·단계로 산정한 압축기·드라이어·HMI 수요 관련도(70+ 즉시 검토, 40~69 모니터링). 등급: A 공식 출처(공시·정부 발표), B 서로 다른 주요 언론 2곳 이상 또는 매체 4곳 이상 보도, C 그 외. 예상 압축기 용량은 업종·규모 기반 추정치로 현장 확인 전 참고용입니다.</p>
-        <p>출처: DART 전자공시, 산업통상부·정책브리핑, 구글·Bing 뉴스, 지방지 RSS, 한국산업단지공단 등록공장현황. 자동 수집 후 담당자 검수.</p>
+        <p>출처: DART 전자공시, 산업통상부·정책브리핑, 구글·Bing 뉴스, 지방지 RSS, 한국산업단지공단 등록공장현황, 국토교통부 건축HUB 건축인허가. 자동 수집 후 담당자 검수.</p>
       </footer>
     </main>
   );
