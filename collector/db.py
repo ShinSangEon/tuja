@@ -219,9 +219,23 @@ def wipe_signals(c):
 def upsert_signal(c, sig: dict) -> str:
     vals = {k: sig.get(k) for k in SIGNAL_COLS}
     if sig.get("_id"):
+        old = c.execute("select stage, amount_krw, effective_grade from v_signals_map where id = %s", (sig["_id"],)).fetchone()
         sets = ", ".join(f"{k} = %({k})s" for k in SIGNAL_COLS)
         c.execute(f"update signals set {sets}, last_seen_at = now() where id = %(id)s", {**vals, "id": sig["_id"]})
         sid = sig["_id"]
+        if old:  # 단계·금액·등급이 바뀌면 '시스템' 활동으로 남긴다 (주간 보고 '지난주 대비 변화')
+            from config import STAGE_ORDER  # noqa: PLC0415
+            labels = {"disclosure": "공시", "mou": "투자협약", "permit": "인허가", "construction": "착공", "completed": "준공"}
+            msgs = []
+            if old["stage"] != vals.get("stage") and vals.get("stage") in STAGE_ORDER:
+                msgs.append(f"단계 {labels.get(old['stage'], old['stage'])} → {labels.get(vals['stage'], vals['stage'])}")
+            oa, na = old.get("amount_krw"), vals.get("amount_krw")
+            if na and (not oa or int(oa) != int(na)):
+                msgs.append(f"금액 {int(oa) // 100000000 if oa else '미공개'}억 → {int(na) // 100000000}억")
+            if old.get("effective_grade") != vals.get("grade") and vals.get("grade"):
+                msgs.append(f"등급 {old.get('effective_grade')} → {vals['grade']}")
+            if msgs:
+                c.execute("insert into signal_activities (signal_id, actor, kind, content) values (%s, '시스템', 'system', %s)", (sid, " · ".join(msgs)))
     else:
         cols = ", ".join(SIGNAL_COLS)
         ph = ", ".join(f"%({k})s" for k in SIGNAL_COLS)

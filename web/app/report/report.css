@@ -45,3 +45,49 @@
 @media (max-width: 800px) { .rpt-two { grid-template-columns: 1fr; } .rpt-head { flex-direction: column; } }
 .rpt-page .cust { color: #2457C5; }
 .rpt-page .cust-tag { display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 3px; background: #2457C5; color: #fff; font-size: 10px; font-weight: 700; vertical-align: 1px; }
+
+/* 숫자 타일 */
+.kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 18px; }
+.kpi { padding: 12px 14px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; display: flex; flex-direction: column; gap: 2px; }
+.kpi b { font-size: 28px; line-height: 1.1; letter-spacing: -0.02em; }
+.kpi span { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.kpi small { font-size: 11px; color: var(--ink-3); }
+.kpi.hot { border-color: var(--hot); } .kpi.hot b { color: var(--hot); }
+.kpi.cust { border-color: #2457C5; } .kpi.cust b { color: #2457C5; }
+
+/* 이번 주 꼭 3건 */
+.top3-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.top3-list li { border: 1.5px solid var(--ink); border-radius: 8px; padding: 12px 14px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+.top3-list li.is-cust { border-color: #2457C5; box-shadow: inset 4px 0 0 #2457C5; }
+.top3-head { display: flex; gap: 10px; align-items: flex-start; }
+.top3-name { font-size: 15px; font-weight: 800; line-height: 1.25; } .top3-name small { display: block; font-weight: 500; color: var(--ink-3); font-size: 11.5px; margin-top: 2px; }
+.top3-sum { margin: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+.top3-kv { display: grid; grid-template-columns: 56px 1fr; gap: 3px 8px; margin: 0; font-size: 12px; border-top: 1px solid var(--line-2); padding-top: 8px; }
+.top3-kv dt { color: var(--ink-3); } .top3-kv dd { margin: 0; }
+
+/* 왜 지금 태그 */
+.tags { display: inline-flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.tag { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--line); color: var(--ink-2); background: var(--paper); white-space: nowrap; }
+.tag.hot, .tag.permit { border-color: var(--hot); color: var(--hot); background: #FBEAE7; }
+.tag.cust { border-color: #2457C5; color: #2457C5; background: #EAF0FB; }
+.tag.a { border-color: var(--ink); color: var(--ink); background: #fff; }
+.tag.win { border-color: var(--watch); color: #9A6A08; background: #FBF3E0; }
+
+.rpt-table tr.is-cust td { box-shadow: inset 3px 0 0 #2457C5; }
+.rpt-table tr.is-cust td:first-child { padding-left: 10px; }
+.rpt-table tr.is-radar td:first-child { box-shadow: inset 3px 0 0 var(--ink-3); padding-left: 10px; }
+.radar-tag { display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 3px; background: var(--ink-3); color: #fff; font-size: 10px; font-weight: 700; vertical-align: 1px; }
+.stage-bar span.won { background: #1E7F4F; } .stage-bar span.lost { background: var(--ink-3); }
+.change-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.change-list li { padding: 5px 0; border-bottom: 1px solid var(--line-2); font-size: 12.5px; }
+.change-list li b { font-size: 14px; }
+.rpt-three { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 24px; }
+
+@page { size: A4; margin: 14mm 12mm 16mm; }
+@media print {
+  .kpis { grid-template-columns: repeat(5, 1fr); }
+  .top3-list { grid-template-columns: repeat(3, 1fr); } .top3-list li { break-inside: avoid; }
+  .rpt-three { grid-template-columns: 1.2fr 1fr 1fr; break-inside: avoid; }
+  .rpt-page::after { content: "GENEQ 투자 레이더 · 대외비"; position: fixed; bottom: 0; right: 0; font-size: 9px; color: var(--ink-3); }
+}
+@media (max-width: 800px) { .kpis { grid-template-columns: repeat(2, 1fr); } .top3-list { grid-template-columns: 1fr; } .rpt-three { grid-template-columns: 1fr; } }
