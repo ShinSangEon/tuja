@@ -172,9 +172,8 @@ MANUAL_COLS = ("owner", "contact_status", "network_note", "manual_grade", "bjdon
 
 def snapshot_manual(c) -> list[dict]:
     """rebuild 전에 사람이 입력한 것(담당·상태·메모·수동등급)과 영업 활동 기록을 회사·지역 키로 떠둔다."""
-    sigs = c.execute(f"""select id, company_norm, sido, sigungu, event_type, {', '.join(MANUAL_COLS)} from signals
-                         where owner is not null or coalesce(contact_status,'none') <> 'none' or network_note is not null
-                            or manual_grade is not null or bjdong_cd is not null""").fetchall()
+    # 모든 신호의 first_seen_at 도 함께 보존 (rebuild 후 '새로 포착' 판정이 틀어지지 않도록)
+    sigs = c.execute(f"select id, company_norm, sido, sigungu, event_type, first_seen_at, {', '.join(MANUAL_COLS)} from signals").fetchall()
     acts = c.execute("select signal_id, actor, kind, content, created_at from signal_activities").fetchall()
     by_sig: dict = {}
     for a in acts:
@@ -203,6 +202,8 @@ def restore_manual(c, snap: list[dict]) -> int:
             continue
         sid = rows[0]["id"]
         sets = {k: s.get(k) for k in MANUAL_COLS if s.get(k) not in (None, "none")}
+        if s.get("first_seen_at"):
+            sets["first_seen_at"] = s["first_seen_at"]
         if sets:
             c.execute(f"update signals set {', '.join(f'{k} = %({k})s' for k in sets)} where id = %(id)s", {**sets, "id": sid})
         for a in s["activities"]:
