@@ -217,6 +217,58 @@ export function SalesPanel({ s, onChange }) {
   );
 }
 
+/** 들어가는 길 — 그룹별 구매 채널·등록 절차·영업 팁. 기본값 + 팀이 고친 내용(DB). */
+export function Playbook({ s }) {
+  const [pb, setPb] = useState(null);
+  const [edit, setEdit] = useState(false);
+  const [draft, setDraft] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    setPb(null); setEdit(false);
+    fetch(`/api/playbook?company=${encodeURIComponent(s.company_name ?? "")}&group=${encodeURIComponent(s.company_group ?? "")}`).then((r) => r.json()).then(setPb).catch(() => setPb(null));
+  }, [s.id]);
+  if (!pb) return null;
+  const save = async () => {
+    const me = myName();
+    if (!me) { setErr("영업 진행 칸의 '내 이름'을 먼저 입력하세요."); return; }
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch("/api/playbook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: pb.key, actor: me, ...draft }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "저장 실패");
+      setPb(d); setEdit(false);
+    } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  const F = ({ k, label, rows = 2 }) => (
+    <label className="pb-f"><span>{label}</span><textarea rows={rows} value={draft[k] ?? pb[k] ?? ""} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} /></label>
+  );
+  return (
+    <section className="detail-sec playbook">
+      <h3>들어가는 길 <small>{pb.label}{pb.edited ? ` · ${pb.updated_by ?? "팀"} 수정` : " · 기본 안내"}</small>
+        {!edit && <button className="mini pb-edit" onClick={() => { setDraft({}); setEdit(true); }}>수정</button>}
+      </h3>
+      {pb.verify && !pb.edited && <p className="pb-verify">기본값은 공개 정보로 채운 초안입니다. 실제 채널·담당을 아는 분이 '수정'으로 바로잡아 주세요.</p>}
+      {edit ? (
+        <div className="pb-form">
+          {F({ k: "channel", label: "구매 채널", rows: 1 })}
+          <label className="pb-f"><span>채널 주소</span><input value={draft.channel_url ?? pb.channel_url ?? ""} onChange={(e) => setDraft({ ...draft, channel_url: e.target.value })} placeholder="https://" /></label>
+          {F({ k: "registration", label: "등록·진입 절차", rows: 3 })}
+          {F({ k: "tips", label: "영업 팁 (GENEQ 경험)", rows: 3 })}
+          {err && <p className="form-err">{err}</p>}
+          <div className="pb-actions"><button className="mini" onClick={() => setEdit(false)} disabled={busy}>취소</button><button className="mini on" onClick={save} disabled={busy}>저장</button></div>
+        </div>
+      ) : (
+        <dl className="pb-kv">
+          <dt>채널</dt><dd>{pb.channel_url ? <a href={pb.channel_url} target="_blank" rel="noreferrer">{pb.channel}</a> : pb.channel}</dd>
+          <dt>절차</dt><dd>{pb.registration}</dd>
+          <dt>팁</dt><dd className="pb-tips">{pb.tips}</dd>
+        </dl>
+      )}
+    </section>
+  );
+}
+
 export function SignalDetail({ s, onClose, onBack, onFactories, onPermits, onSalesChange }) {
   const g = grade(s);
   const p = priority(s.relevance_score);
@@ -269,6 +321,7 @@ export function SignalDetail({ s, onClose, onBack, onFactories, onPermits, onSal
           </dl>); })()}
       </section>
 
+      <Playbook s={s} />
       <SalesPanel s={s} onChange={(patch) => onSalesChange?.(s.id, patch)} />
       <FactoryList name={s.company_name} onFactories={onFactories} />
       <PermitList signalId={s.id} onPermits={onPermits} />
