@@ -311,6 +311,20 @@ def cmd_purge_bodies(_a):
         log.info("purged %d bodies", db.purge_bodies(c))
 
 
+def cmd_permits_codes(a):
+    with db.conn() as c:
+        permits.export_codes(c, a.out)
+
+
+def cmd_permits_fetch(a):
+    permits.fetch_to_file(a.codes, a.out, days=a.days)
+
+
+def cmd_permits_load(a):
+    with db.conn() as c:
+        permits.load_file(c, a.file)
+
+
 def cmd_load_customers(_a):
     """collector/customers.yaml → customers 테이블. 이후 rebuild 로 signals.customer_name 반영."""
     import customers
@@ -345,6 +359,9 @@ def main():
     p = sub.add_parser("purge-bodies"); p.set_defaults(fn=cmd_purge_bodies)
     p = sub.add_parser("alias"); p.add_argument("alias"); p.add_argument("canonical"); p.set_defaults(fn=cmd_alias)
     p = sub.add_parser("load-customers"); p.set_defaults(fn=cmd_load_customers)
+    p = sub.add_parser("permits-codes"); p.add_argument("--out", default="out/bjdong.json"); p.set_defaults(fn=cmd_permits_codes)
+    p = sub.add_parser("permits-fetch"); p.add_argument("--codes", default="out/bjdong.json"); p.add_argument("--out", default="out/permits.json"); p.add_argument("--days", type=int, default=365); p.set_defaults(fn=cmd_permits_fetch)
+    p = sub.add_parser("permits-load"); p.add_argument("--file", default="out/permits.json"); p.set_defaults(fn=cmd_permits_load)
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     if not DATABASE_URL and a.cmd in ("collect", "ingest"):

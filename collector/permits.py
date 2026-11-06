@@ -112,10 +112,68 @@ def upsert(c, rows: list[dict]) -> int:
     return n
 
 
+def export_codes(c, path: str) -> int:
+    """PC 쪽 1단계: 좌표 → 법정동코드(카카오)만 계산해 signals.bjdong_cd 에 저장하고 코드 목록을 파일로 쓴다. 정부 서버 접속 없음."""
+    import json
+    c.execute(SCHEMA)
+    kakao = os.getenv("KAKAO_REST_KEY", "")
+    for r in c.execute("select id, lat, lng, bjdong_cd from signals where lat is not null and not archived and bjdong_cd is null").fetchall():
+        try:
+            code = bjdong_code(r["lat"], r["lng"], kakao)
+        except Exception as e:  # noqa: BLE001
+            log.warning("bjdong %s: %s", r["id"], e); code = None
+        if code:
+            c.execute("update signals set bjdong_cd = %s where id = %s", (code, r["id"]))
+    codes = sorted({r["bjdong_cd"] for r in c.execute("select distinct bjdong_cd from signals where bjdong_cd is not null and not archived")})
+    json.dump(codes, open(path, "w"), ensure_ascii=False)
+    log.info("bjdong codes exported: %d → %s", len(codes), path)
+    return len(codes)
+
+
+def fetch_to_file(codes_path: str, out_path: str, days: int = 365, pause: float = 1.0) -> int:
+    """2단계 (회사 IP 밖에서 실행): 코드 목록을 읽어 건축HUB 를 순차·저속 호출하고 결과를 파일로."""
+    import json, time
+    codes = json.load(open(codes_path))
+    since = date.today() - timedelta(days=days)
+    rows = []
+    for code in codes:
+        try:
+            rows += fetch_bjdong(code[:5], code[5:], since, max_pages=3)
+        except Exception as e:  # noqa: BLE001
+            log.warning("permits %s failed: %s", code, e)
+        time.sleep(pause)
+    json.dump(rows, open(out_path, "w"), ensure_ascii=False, default=str)
+    log.info("permits fetched: %d rows from %d dongs → %s", len(rows), len(codes), out_path)
+    return len(rows)
+
+
+def load_file(c, path: str) -> int:
+    """3단계 (PC): 결과 파일을 DB 에 넣고 대지위치를 카카오로 지오코딩."""
+    import json, geocode
+    c.execute(SCHEMA)
+    rows = json.load(open(path))
+    cache: dict = {}
+    for p in rows:
+        if p.get("plat_plc") and not p.get("lat"):
+            try:
+                pt = geocode.geocode_address(p["plat_plc"], cache)
+            except Exception:  # noqa: BLE001
+                pt = None
+            if pt:
+                p["lat"], p["lng"] = pt
+    n = upsert(c, rows)
+    log.info("permits loaded: %d", n)
+    return n
+
+
 def refresh_for_signals(c, days: int = 365) -> int:
     """좌표가 있는 신호마다 법정동을 정하고(signals.bjdong_cd 캐시), 법정동별로 최근 N일 공장 인허가를 가져온다."""
     if not enabled():
         log.info("permits: DATA_GO_KR_KEY 없음 → 건너뜀")
+        return 0
+    if os.getenv("ALLOW_GOV_API") != "1":
+        log.error("permits: 회사 PC 에서 정부 API 직접 호출 금지 (2026-11-06 IP 차단 사고). "
+                  "대신 run.py permits-codes → (외부에서) permits-fetch → permits-load 순으로 실행")
         return 0
     import geocode
     c.execute(SCHEMA)

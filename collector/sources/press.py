@@ -37,7 +37,19 @@ def _matches(title: str, include: list[str]) -> bool:
     return any(k.lower() in title.lower() for k in include)
 
 
+# 정부·공공 도메인은 직접 접속 금지 (2026-11-06 회사 공인 IP 가 정부 사이트에서 차단된 사고 이후).
+# 보도자료는 구글·Bing 뉴스 RSS 의 제목·요약으로만 받는다.
+NO_FETCH_HOSTS = (".go.kr", ".or.kr", "korea.kr")
+
+
+def is_gov_host(url: str) -> bool:
+    host = urlparse(url).netloc.lower()
+    return any(host.endswith(s) or host == s.lstrip(".") for s in NO_FETCH_HOSTS)
+
+
 def _body(url: str, selector: str | None, max_chars: int = 6000) -> str:
+    if is_gov_host(url):
+        return ""
     try:
         r = requests.get(url, headers=UA, timeout=15)
         r.raise_for_status()
@@ -118,7 +130,11 @@ def _from_rss(src: dict, since: date) -> list[dict]:
         elif agg:  # 구글 뉴스 RSS: 매체명은 피드에서. 본문은 나중에 Bing 으로 원문 찾아 채움 (fill_bodies)
             name = (getattr(e, "source", None) or {}).get("title") or name
             title = re.sub(r"\s*-\s*[^-]+$", "", title)  # 제목 끝 " - 매체명" 제거
-            tier = 2 if name in TIER2_PRESS else 3
+            src_url = (getattr(e, "source", None) or {}).get("href") or ""
+            if src.get("tier") == 1 or is_gov_host(src_url) or "정책브리핑" in name:
+                tier, name = 1, (name if "정책브리핑" in name or name.endswith("부") else name)
+            else:
+                tier = 2 if name in TIER2_PRESS else 3
             body = re.sub(r"<[^>]+>", " ", e.get("summary") or "")
         out.append(
             {
@@ -201,8 +217,8 @@ def fill_bodies(docs: list[dict], max_resolve: int = 120, workers: int = 8) -> N
         u = resolve_via_bing(d["title"])
         if u:
             d["meta"]["google_url"] = d["url"]; d["url"] = u
-            d["body"] = _body(u, None) or d.get("body") or ""
-            d["meta"]["body_from"] = "bing-resolved"
+            d["body"] = (d.get("body") or "") if is_gov_host(u) else (_body(u, None) or d.get("body") or "")
+            d["meta"]["body_from"] = "bing-resolved" + ("-nofetch" if is_gov_host(u) else "")
 
     def _d(d):
         d["body"] = _body(d["url"], None) or d.get("body") or ""
@@ -218,7 +234,9 @@ def fetch(since: date, group: str | None = None) -> list[dict]:
     docs, seen = [], set()
     srcs = []
     for src in load_sources():
-        kind = "news" if src.get("aggregator") else ("gov" if src.get("key", "").startswith("gov_") else "paper")
+        if src.get("key", "").startswith("gov_") and not src.get("aggregator"):
+            continue  # 정부 사이트 직접 수집은 영구 비활성 (IP 차단 사고)
+        kind = "gov" if src.get("key", "").startswith("gov_") else ("news" if src.get("aggregator") else "paper")
         if not group or kind == group:
             srcs.append(src)
 

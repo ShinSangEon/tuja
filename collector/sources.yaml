@@ -747,7 +747,7 @@ sources:
 - key: gov_motie
   name: 산업통상부
   type: html
-  enabled: true
+  enabled: false
   tier: 1
   url: https://www.motir.go.kr/kor/article/ATCL3f49a5a8c
   item_selector: table tbody tr
@@ -777,7 +777,7 @@ sources:
 - key: gov_koreakr_투자협약_공장
   name: 정책브리핑
   type: html
-  enabled: true
+  enabled: false
   tier: 1
   url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=투자협약 공장
   item_selector: li
@@ -788,7 +788,7 @@ sources:
 - key: gov_koreakr_공장_증설
   name: 정책브리핑
   type: html
-  enabled: true
+  enabled: false
   tier: 1
   url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=공장 증설
   item_selector: li
@@ -799,7 +799,7 @@ sources:
 - key: gov_koreakr_공장_신설
   name: 정책브리핑
   type: html
-  enabled: true
+  enabled: false
   tier: 1
   url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=공장 신설
   item_selector: li
@@ -810,7 +810,7 @@ sources:
 - key: gov_koreakr_지방투자촉진보조금
   name: 정책브리핑
   type: html
-  enabled: true
+  enabled: false
   tier: 1
   url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=지방투자촉진보조금
   item_selector: li
@@ -821,7 +821,7 @@ sources:
 - key: gov_koreakr_기회발전특구_투자
   name: 정책브리핑
   type: html
-  enabled: true
+  enabled: false
   tier: 1
   url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=기회발전특구 투자
   item_selector: li
@@ -832,7 +832,7 @@ sources:
 - key: gov_koreakr_산업단지_입주
   name: 정책브리핑
   type: html
-  enabled: true
+  enabled: false
   tier: 1
   url: https://www.korea.kr/briefing/pressReleaseList.do?pageIndex=1&srchWord=산업단지 입주
   item_selector: li
@@ -882,3 +882,69 @@ sources:
   enabled: true
   query: 공장 준공식
   include: *id003
+
+# 정부 보도자료 — 구글 뉴스 site: 검색 경유 (정부 서버 직접 접속 없음, tier 1)
+- key: gov_g1
+  name: 정책브리핑
+  type: rss
+  aggregator: google
+  tier: 1
+  enabled: true
+  url: https://news.google.com/rss/search?q=site%3Akorea.kr%20%ED%88%AC%EC%9E%90%ED%98%91%EC%95%BD%20%EA%B3%B5%EC%9E%A5+when:7d&hl=ko&gl=KR&ceid=KR:ko
+  include: *id001
+- key: gov_g2
+  name: 정책브리핑
+  type: rss
+  aggregator: google
+  tier: 1
+  enabled: true
+  url: https://news.google.com/rss/search?q=site%3Akorea.kr%20%EA%B3%B5%EC%9E%A5%20%EC%B0%A9%EA%B3%B5%20OR%20%EC%A4%80%EA%B3%B5+when:7d&hl=ko&gl=KR&ceid=KR:ko
+  include: *id001
+- key: gov_g3
+  name: 정책브리핑
+  type: rss
+  aggregator: google
+  tier: 1
+  enabled: true
+  url: https://news.google.com/rss/search?q=site%3Akorea.kr%20%EC%82%B0%EC%97%85%EB%8B%A8%EC%A7%80%20%ED%88%AC%EC%9E%90%20%EC%8B%A0%EC%84%A4+when:7d&hl=ko&gl=KR&ceid=KR:ko
+  include: *id001
+- key: gov_g4
+  name: 정책브리핑
+  type: rss
+  aggregator: google
+  tier: 1
+  enabled: true
+  url: https://news.google.com/rss/search?q=site%3Akorea.kr%20%EC%A7%80%EB%B0%A9%ED%88%AC%EC%9E%90%EC%B4%89%EC%A7%84%EB%B3%B4%EC%A1%B0%EA%B8%88+when:7d&hl=ko&gl=KR&ceid=KR:ko
+  include: *id001
+- key: gov_g5
+  name: 정책브리핑
+  type: rss
+  aggregator: google
+  tier: 1
+  enabled: true
+  url: https://news.google.com/rss/search?q=site%3Akorea.kr%20%EA%B8%B0%ED%9A%8C%EB%B0%9C%EC%A0%84%ED%8A%B9%EA%B5%AC%20%ED%88%AC%EC%9E%90+when:7d&hl=ko&gl=KR&ceid=KR:ko
+  include: *id001
+- key: gov_g6
+  name: 정책브리핑
+  type: rss
+  aggregator: google
+  tier: 1
+  enabled: true
+  url: https://news.google.com/rss/search?q=site%3Akorea.kr%20%EC%82%B0%EC%97%85%EB%B6%80%20%ED%88%AC%EC%9E%90%20%EC%A6%9D%EC%84%A4+when:7d&hl=ko&gl=KR&ceid=KR:ko
+  include: *id001
+- key: gov_g7
+  name: 정책브리핑
+  type: rss
+  aggregator: google
+  tier: 1
+  enabled: true
+  url: https://news.google.com/rss/search?q=site%3Amotie.go.kr%20%ED%88%AC%EC%9E%90+when:7d&hl=ko&gl=KR&ceid=KR:ko
+  include: *id001
+- key: gov_g8
+  name: 정책브리핑
+  type: rss
+  aggregator: google
+  tier: 1
+  enabled: true
+  url: https://news.google.com/rss/search?q=site%3Ame.go.kr%20%EA%B3%B5%EC%9E%A5%20%EC%84%A4%EC%B9%98+when:7d&hl=ko&gl=KR&ceid=KR:ko
+  include: *id001
