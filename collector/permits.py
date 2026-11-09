@@ -215,7 +215,7 @@ def refresh_for_signals(c, days: int = 365) -> int:
 
 # ── 건축허가 ↔ 신호 연동 ─────────────────────────────────
 _STRIP = re.compile(r"\(주\)|㈜|주식회사|\s|\(.*?\)")
-_NOISE = re.compile(r"(신축공사|증축공사|신축|증축|공사|공장동|공장|사옥|물류센터|물류창고|창고|제\d+공장|\d+공장|제\d+동|\d+동|[A-Z]\d*동|부지|현장|신관|본관|생산동|연구동|사무동)+$")
+_NOISE = re.compile(r"(신축공사|증축공사|신축|증축|공사|공장동|공장|사옥|물류센터|물류창고|창고|제\d+공장|\d+공장|제\d+동|\d+동|[A-Z]-?\d*동|부지|현장|신관|본관|생산동|연구동|사무동)+$")
 _STAGE_RANK = {"disclosure": 0, "mou": 1, "permit": 2, "construction": 3, "completed": 4}
 
 
@@ -226,17 +226,28 @@ def _core(name: str | None) -> str:
 def company_from_bld(bld_nm: str) -> str | None:
     """건물명에서 회사명 추정: '(주)대동 차량시설검사장 증축공사' → '대동'. 지명·주소형('논공읍 북리 1-48')은 None."""
     s = (bld_nm or "").strip()
-    s = re.sub(r"^([가-힣]+(읍|면|동|리|구)\s+\d[\d-]*\s+)+", "", s)  # 앞의 '성산동 72 ' 같은 주소 토큰 제거
+    if re.search(r"승강기|주차장|주차타워|경비실|수위실|화장실|폐수처리|위험물|옥외|담장|대문", s):
+        return None  # 부속시설 허가 — 생산 증설 아님
+    # '공장((주)미누스토리)' / '공장(코스맥스(주))' 처럼 괄호 안에 회사명이 있는 경우 먼저
+    for g in re.findall(r"\(((?:[^()]|\(주\))+)\)", s):
+        if "(주)" in g or "㈜" in g or "주식회사" in g:
+            s = g.strip()
+            break
+    s = re.sub(r"^([가-힣]+(읍|면|동|리|구)\s+)*(\d[\d-]*\s+)+", "", s)  # 앞의 '청북읍 고렴리 1127 ' 같은 주소 토큰 제거
     if not s or re.match(r"^[가-힣]+(읍|면|동|리|구)\s", s) or re.search(r"\d+-\d+", s):
         return None
     toks = re.split(r"\s+", s)
-    if "(주)" in s or "주식회사" in s:
-        i = next(k for k, tk in enumerate(toks) if "(주)" in tk or "주식회사" in tk)
+    if "(주)" in s or "주식회사" in s or "㈜" in s:
+        i = next(k for k, tk in enumerate(toks) if "(주)" in tk or "주식회사" in tk or "㈜" in tk)
         tok = toks[i]
-        if tok in ("(주)", "주식회사"):  # '(주) 대동' 처럼 떨어진 경우
-            tok = tok + (toks[i + 1] if i + 1 < len(toks) else "")
-        elif tok.startswith("(주)") and len(tok) <= 3 and i + 1 < len(toks):
+        if tok in ("(주)", "주식회사", "㈜"):  # '(주) 대동' / '도레이첨단소재 주식회사' 처럼 떨어진 경우
+            tok = tok + (toks[i + 1] if i + 1 < len(toks) and i == 0 else toks[i - 1] if i > 0 else "")
+        elif tok.startswith(("(주)", "㈜")) and len(tok) <= 3 and i + 1 < len(toks):
             tok += toks[i + 1]
+        else:
+            m = re.match(r"^(.+?)(\(주\)|㈜|주식회사)", tok)
+            if m and m.group(1):  # '현대모비스(주)창원공장' → 법인 표기 뒤는 지명·시설명
+                tok = m.group(1)
         s = tok
     else:
         s = toks[0]
