@@ -313,8 +313,10 @@ def link_signals(c, log_activity: bool = True) -> dict:
             c.execute("update signals set stage = %s where id = %s", (target, s["id"]))
             if log_activity:
                 labels = {"permit": "인허가", "construction": "착공", "completed": "준공"}
-                c.execute("insert into signal_activities (signal_id, actor, kind, content) values (%s,'시스템','system',%s)",
-                          (s["id"], f"건축허가 원장 확인({best['bld_nm']}, {best['arch_gb'] or ''} {int(best['tot_area'] or 0):,}㎡, 허가 {best['pms_day']}) → 단계 {labels[target]}"))
+                msg = f"건축허가 원장 확인({best['bld_nm']}, {best['arch_gb'] or ''} {int(best['tot_area'] or 0):,}㎡, 허가 {best['pms_day']}) → 단계 {labels[target]}"
+                # rebuild 마다 단계가 원복→재승격되므로 같은 내용의 기록이 이미 있으면 다시 남기지 않음
+                if not c.execute("select 1 from signal_activities where signal_id = %s and kind = 'system' and content = %s", (s["id"], msg)).fetchone():
+                    c.execute("insert into signal_activities (signal_id, actor, kind, content) values (%s,'시스템','system',%s)", (s["id"], msg))
             promoted += 1
     # 2) 대형 허가 자동 등록
     known = {s["company_norm"] for s in c.execute("select company_norm from signals")}
