@@ -62,7 +62,7 @@ GOV_SOURCES = {"dart"}  # 공공기관(.or.kr/.go.kr) 서버에 닿는 소스 �
 def cmd_collect(a):
     since = datetime.fromisoformat(a.since).date()
     sources = [s.strip() for s in a.sources.split(",") if s.strip()]
-    if not a.dump and os.getenv("ALLOW_GOV_API") != "1" and (set(sources) & GOV_SOURCES):
+    if not a.dump and not a.load and os.getenv("ALLOW_GOV_API") != "1" and (set(sources) & GOV_SOURCES):
         log.error("회사 PC 에서 %s 수집 금지 (정부·공공기관 서버 직접 접속). 외부에서 `collect --dump FILE` 로 받아 `load-docs FILE` 로 적재하세요.", sorted(set(sources) & GOV_SOURCES))
         return
     if a.load:
