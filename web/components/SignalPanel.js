@@ -333,8 +333,8 @@ export function SignalDetail({ s, onClose, onBack, onFactories, onPermits, onSal
         <ul className="sources">
           {(s.sources ?? []).slice(0, 12).map((src, i) => (
             <li key={i}>
-              <a href={src.url} target="_blank" rel="noreferrer">
-                <span className={`tier t${src.tier}`}>{src.tier === 1 ? "공식" : src.tier === 2 ? "주요지" : "기타"}</span>
+              <a href={src.url?.startsWith("permit://") ? "https://www.hub.go.kr" : src.url} target="_blank" rel="noreferrer">
+                <span className={`tier t${src.tier}`}>{src.url?.startsWith("permit://") ? "원장" : src.tier === 1 ? "공식" : src.tier === 2 ? "주요지" : "기타"}</span>
                 <span className="src-name">{src.source ?? ""}</span>
                 <span className="src-title">{src.title ?? src.url}</span>
                 <span className="src-date">{fmtDate(src.published_at)}</span>

@@ -22,7 +22,22 @@ BASE = "https://opendart.fss.or.kr/api"
 QUERIES = (
     ("I", ("신규시설투자",)),                      # 거래소공시: 신규시설투자등
     ("B", ("유형자산양수", "비유동자산취득")),      # 주요사항보고: 공장·부지·설비 매입
+    ("B", ("유상증자결정", "전환사채권발행결정", "신주인수권부사채권발행결정", "교환사채권발행결정")),  # 자금조달 — 아래에서 '시설자금' 있는 건만 남김
 )
+FUNDING_REPORTS = ("유상증자", "전환사채", "신주인수권부사채", "교환사채")
+_FACILITY_RE = re.compile(r"시설자금\s*\(원\)?\s*([0-9,]+)")
+
+
+def facility_funding(text: str) -> int | None:
+    """자금조달 공시 본문에서 '시설자금 (원) 12,000,000,000' 금액. 없거나 '-'/0 이면 None."""
+    m = _FACILITY_RE.search(text or "")
+    if not m:
+        return None
+    try:
+        v = int(m.group(1).replace(",", ""))
+    except ValueError:
+        return None
+    return v or None
 
 
 def _list_page(bgn: str, end: str, page: int, pblntf_ty: str = "I") -> dict:
@@ -100,7 +115,7 @@ def fetch_document_text(rcept_no: str) -> str:
 
 def _focus(text: str, max_chars: int = 6000) -> str:
     """투자 관련 표(투자구분·투자금액·투자기간·투자목적·투자대상/지역)가 있는 부분 위주로 자른다."""
-    anchors = ["투자구분", "투자금액", "투자기간", "투자목적", "투자효과", "투자대상", "소재지", "위치"]
+    anchors = ["투자구분", "투자금액", "투자기간", "투자목적", "투자효과", "투자대상", "소재지", "위치", "자금조달의 목적", "시설자금"]
     idx = min((text.find(a) for a in anchors if text.find(a) >= 0), default=0)
     start = max(0, idx - 500)
     return text[start : start + max_chars]
@@ -112,11 +127,19 @@ def fetch(since: date, include_body: bool = True) -> list[dict]:
         rcept_no = item["rcept_no"]
         url = f"https://dart.fss.or.kr/dsaf001/main.do?rcptNo={rcept_no}"
         body = ""
-        if include_body:
+        is_funding = any(k in item["report_nm"] for k in FUNDING_REPORTS)
+        if include_body or is_funding:
             try:
-                body = _focus(fetch_document_text(rcept_no))
+                full = fetch_document_text(rcept_no)
             except Exception as e:  # 한 건 실패가 전체를 막지 않게
                 log.warning("DART doc %s failed: %s", rcept_no, e)
+                full = ""
+            if is_funding:
+                amt = facility_funding(full)
+                if not amt:
+                    continue  # 운영자금·채무상환만 있는 조달은 제외
+                item = {**item, "report_nm": f"{item['report_nm']} (시설자금 {amt // 100000000:,}억)"}
+            body = _focus(full)
         published = datetime.strptime(item["rcept_dt"], "%Y%m%d")
         docs.append(
             {

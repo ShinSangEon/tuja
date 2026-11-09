@@ -8,15 +8,17 @@ Claude API 를 쓰지 않는다. 추출은 **이 Claude 세션에서** 한다. �
 ① collect    PC:  python run.py collect --since <3일전> --sources news     (~1분, 구글·Bing 뉴스 RSS)
                   python run.py collect --since <3일전> --sources paper    (지방지 RSS 15개)
                   python run.py collect --since <7일전> --sources gov      (정책브리핑 — 구글 뉴스 site: 검색 경유, 정부 서버 직접 접속 없음)
-                  python run.py collect --since <7일전> --sources dart     (DART 신규시설투자·유형자산취득)
+   (외부)        python run.py collect --since <7일전> --sources dart --dump out/dart-docs.json
+   (PC)          python run.py collect --since <7일전> --load out/dart-docs.json
+                  → DART(금감원, .or.kr)도 회사 PC 에서 직접 호출하지 않는다. 유상증자·CB 공시는 '시설자금' 금액이 있는 건만 들어온다
              → Neon raw_documents 적재 → out/pending.md (관련 가능성 있는 문서만, 본문 3,000자)
 ② extract    Claude 가 pending.md 를 읽고 문서마다 JSON → out/extracted-N.json (번호 올려가며 보관)
 ③ ingest     python run.py ingest out/extracted-N.json   → 검증·병합·지오코딩(등록공장 좌표 우선) → signals
 ④ rebuild    python run.py rebuild                       → 전체 추출을 다시 병합 (별칭 등록·규칙 수정 후 필수)
-⑤ companies  python run.py companies                     → 신규 상장사 DART 재무·종업원·생산설비 카드 갱신
+⑤ companies  (PC) python run.py companies --export-targets out/targets.json → (외부) companies --build out/targets.json --out out/companies.json → (PC) companies --load out/companies.json
 ⑥ permits    (PC)   python run.py permits-codes            → 좌표→법정동코드(카카오), out/bjdong.json
              (외부) python run.py permits-fetch            → 건축HUB 호출은 반드시 회사 IP 밖(Claude 샌드박스·Actions)에서, 1초 간격
-             (PC)   python run.py permits-load             → 결과 적재 + 지오코딩
+             (PC)   python run.py permits-load             → 결과 적재 + 지오코딩 + 허가 원장으로 단계 승격, 1만㎡ 이상 미등록 허가는 신호로 자동 등록(등급 A·원장)
              ※ 2026-11-06 회사 공인 IP 가 정부 사이트에서 차단된 사고 이후, PC 에서는 .go.kr/.or.kr 에 어떤 요청도 보내지 않는다 (press.py NO_FETCH_HOSTS, permits ALLOW_GOV_API 가드)
 ⑦ 확인       https://tuja-72tc.vercel.app  /  /report (주간 보고)
 ```

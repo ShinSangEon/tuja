@@ -208,6 +208,8 @@ def finalize(sig: dict) -> dict:
         {"compressed_air": sig.get("need_compressed_air"), "dryer": sig.get("need_dryer"), "hmi_control": sig.get("need_hmi")},
         sig.get("stage"),
     )
+    if sig.get("confidence") is not None and float(sig["confidence"]) < 0.5:
+        sig["relevance_score"] = min(sig["relevance_score"], 69)  # 저신뢰(전망·검토 단계)는 '즉시 검토'에 못 올라감
     sig["grade"] = grade(sig["_sources"], sig.get("confidence"))
     sig["source_count"] = len(sig["_sources"])
     sig.setdefault("amount_conflict", False)

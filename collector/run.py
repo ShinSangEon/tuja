@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import logging
 import sys
 from datetime import date, datetime, timedelta
@@ -55,9 +56,28 @@ def collect(since: date, names: list[str]) -> list[dict]:
 
 
 # ── 1단계: collect ──────────────────────────────────────
+GOV_SOURCES = {"dart"}  # 공공기관(.or.kr/.go.kr) 서버에 닿는 소스 — 회사 PC 에서는 실행 금지
+
+
 def cmd_collect(a):
     since = datetime.fromisoformat(a.since).date()
-    docs = collect(since, [s.strip() for s in a.sources.split(",") if s.strip()])
+    sources = [s.strip() for s in a.sources.split(",") if s.strip()]
+    if not a.dump and os.getenv("ALLOW_GOV_API") != "1" and (set(sources) & GOV_SOURCES):
+        log.error("회사 PC 에서 %s 수집 금지 (정부·공공기관 서버 직접 접속). 외부에서 `collect --dump FILE` 로 받아 `load-docs FILE` 로 적재하세요.", sorted(set(sources) & GOV_SOURCES))
+        return
+    if a.load:
+        docs = json.loads(Path(a.load).read_text(encoding="utf-8"))
+        for d in docs:
+            if d.get("published_at"):
+                d["published_at"] = datetime.fromisoformat(d["published_at"])
+        log.info("loaded %d docs from %s", len(docs), a.load)
+    else:
+        docs = collect(since, sources)
+    if a.dump:
+        Path(a.dump).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.dump).write_text(json.dumps(docs, ensure_ascii=False, default=str), encoding="utf-8")
+        log.info("dumped %d docs → %s (PC 에서: python run.py collect --load %s --since %s)", len(docs), a.dump, a.dump, a.since)
+        return
     pending = []
     if DATABASE_URL and not a.no_db:
         with db.conn() as c:
@@ -66,7 +86,7 @@ def cmd_collect(a):
             for d in db.pending_documents(c):
                 d["id"] = str(d["id"])
                 rc = (d.get("meta") or {}).get("rcept_no")
-                if d.get("source_type") == "dart" and rc and len(d.get("body") or "") < 300:
+                if d.get("source_type") == "dart" and rc and len(d.get("body") or "") < 300 and os.getenv("ALLOW_GOV_API") == "1":
                     try:  # 웹 실시간 검색으로 추가된 공시 — 본문 보강
                         d["body"] = dart._focus(dart.fetch_document_text(rc))
                         c.execute("update raw_documents set body = %s where id = %s", (d["body"], d["id"]))
@@ -208,6 +228,10 @@ def cmd_rebuild(a):
         complexes, regions, cache = db.load_complexes(c), db.load_regions(c), db.load_geocode_cache(c)
         known = set(cache)
         snap = db.snapshot_manual(c)
+        try:
+            permits.link_signals(c, log_activity=False)  # 대형 허가 → 추출 행 생성 (이번 병합에 포함)
+        except Exception as e:  # noqa: BLE001
+            log.warning("permits link (pre) failed: %s", e)
         db.wipe_signals(c)
         for s in merged:
             if not s.get("corp_code"):
@@ -219,21 +243,49 @@ def cmd_rebuild(a):
         log.info("factory pins geocoded: %d", geocode_target_factories(c, cache))
         db.save_geocode_cache(c, cache, known)
         log.info("manual fields/activities restored: %d/%d", db.restore_manual(c, snap), len(snap))
+        try:
+            permits.link_signals(c)  # 허가 원장으로 단계 승격
+        except Exception as e:  # noqa: BLE001
+            log.warning("permits link (post) failed: %s", e)
         log.info("rebuild: %d extractions → %d candidates → %d signals", len(cands), len(cands), len(merged))
 
 
 # ── 회사 카드 ─────────────────────────────────────────
 def cmd_companies(a):
-    """signals 에 연결된 상장사의 DART 프로필(기본정보·재무 3년·종업원·사업보고서 생산설비 섹션)을 companies 에 적재."""
+    """signals 에 연결된 상장사의 DART 프로필(기본정보·재무 3년·종업원·사업보고서 생산설비 섹션)을 companies 에 적재.
+    DART 호출은 회사 PC 금지 → (PC) --export-targets 로 코드 목록 → (외부) --build 로 조회·파일 저장 → (PC) --load 로 적재."""
+    if a.build:
+        codes = json.loads(Path(a.build).read_text(encoding="utf-8"))
+        rows = []
+        for i, code in enumerate(codes, 1):
+            try:
+                row = companies.build(code); rows.append(row)
+                log.info("[%d/%d] %s %s emp=%s fin=%s facility=%d자", i, len(codes), code, row.get("corp_name"), row.get("employees"), row.get("fin_year"), len(row.get("facility_text") or ""))
+            except Exception as e:  # noqa: BLE001
+                log.warning("company %s failed: %s", code, e)
+        Path(a.out).write_text(json.dumps(rows, ensure_ascii=False, default=str), encoding="utf-8")
+        log.info("companies built: %d → %s", len(rows), a.out)
+        return
     with db.conn() as c:
+        if a.load:
+            rows = json.loads(Path(a.load).read_text(encoding="utf-8"))
+            for row in rows:
+                companies.upsert(c, row)
+            log.info("companies loaded: %d", len(rows))
+            return
         codes = [a.corp_code] if a.corp_code else companies.targets(c, a.max_age)
-        log.info("companies: %d to refresh", len(codes))
+        if a.export_targets:
+            Path(a.export_targets).write_text(json.dumps(codes, ensure_ascii=False), encoding="utf-8")
+            log.info("companies: %d targets → %s", len(codes), a.export_targets)
+            return
+        if os.getenv("ALLOW_GOV_API") != "1":
+            log.error("회사 PC 에서 DART 직접 호출 금지. --export-targets → (외부) --build → --load 순으로.")
+            return
         for i, code in enumerate(codes, 1):
             try:
                 row = companies.build(code)
                 companies.upsert(c, row)
                 c.commit()
-                log.info("[%d/%d] %s %s emp=%s fin=%s facility=%d자", i, len(codes), code, row.get("corp_name"), row.get("employees"), row.get("fin_year"), len(row.get("facility_text") or ""))
             except Exception as e:  # noqa: BLE001
                 log.warning("company %s failed: %s", code, e)
 
@@ -290,6 +342,8 @@ def cmd_refresh_corpcodes(a):
     """DART corpCode.xml (30MB, 다운로드 3분+) → corp_codes 테이블. --csv 로 미리 만든 CSV 를 넣을 수도 있다."""
     if getattr(a, "csv", None):
         rows = [{"corp_code": r["corp_code"], "corp_name": r["corp_name"], "stock_code": r["stock_code"]} for r in csv.DictReader(open(a.csv, encoding="utf-8"))]
+    elif os.getenv("ALLOW_GOV_API") != "1":
+        log.error("회사 PC 에서 DART 직접 호출 금지. 외부에서 CSV 를 만들어 --csv 로 넣으세요."); return
     else:
         rows = dart.download_corp_codes()
     listed = [(validate.normalize_company(r["corp_name"]), r["corp_name"], r["corp_code"], r["stock_code"]) for r in rows if r["stock_code"]]
@@ -323,6 +377,7 @@ def cmd_permits_fetch(a):
 def cmd_permits_load(a):
     with db.conn() as c:
         permits.load_file(c, a.file)
+        permits.link_signals(c)
 
 
 def cmd_load_customers(_a):
@@ -345,12 +400,16 @@ def cmd_alias(a):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("collect"); p.add_argument("--since", default=(date.today() - timedelta(days=3)).isoformat())
+    p = sub.add_parser("collect")
+    p.add_argument("--dump", help="(외부 실행) DB 에 넣지 않고 수집 문서를 이 파일로 저장")
+    p.add_argument("--load", help="(PC) --dump 로 받은 파일을 읽어 DB 적재·사전필터"); p.add_argument("--since", default=(date.today() - timedelta(days=3)).isoformat())
     p.add_argument("--sources", default="dart,press"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_collect)
     p = sub.add_parser("ingest"); p.add_argument("file"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_ingest)
     p = sub.add_parser("rebuild"); p.set_defaults(fn=cmd_rebuild)
     p = sub.add_parser("permits"); p.add_argument("--days", type=int, default=120); p.set_defaults(fn=cmd_permits)
-    p = sub.add_parser("companies"); p.add_argument("--corp-code"); p.add_argument("--max-age", type=int, default=30); p.set_defaults(fn=cmd_companies)
+    p = sub.add_parser("companies")
+    p.add_argument("--export-targets", help="(PC) 갱신 대상 corp_code 목록을 파일로"); p.add_argument("--build", help="(외부) 목록 파일을 읽어 DART 조회 → --out")
+    p.add_argument("--out", default="out/companies.json"); p.add_argument("--load", help="(PC) --build 결과 적재"); p.add_argument("--corp-code"); p.add_argument("--max-age", type=int, default=30); p.set_defaults(fn=cmd_companies)
     p = sub.add_parser("export"); p.add_argument("file"); p.set_defaults(fn=cmd_export)
     p = sub.add_parser("status"); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("load-complexes"); p.add_argument("file"); p.set_defaults(fn=cmd_load_complexes)
