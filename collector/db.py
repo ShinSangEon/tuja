@@ -232,7 +232,8 @@ def upsert_signal(c, sig: dict) -> str:
                 msgs.append(f"단계 {labels.get(old['stage'], old['stage'])} → {labels.get(vals['stage'], vals['stage'])}")
             oa, na = old.get("amount_krw"), vals.get("amount_krw")
             if na and (not oa or int(oa) != int(na)):
-                msgs.append(f"금액 {int(oa) // 100000000 if oa else '미공개'}억 → {int(na) // 100000000}억")
+                fmt = lambda v: f"{int(v) // 1_000_000_000_000}조 {int(v) % 1_000_000_000_000 // 100_000_000:,}억".replace(" 0억", "") if int(v) >= 1_000_000_000_000 else f"{int(v) // 100_000_000:,}억"
+                msgs.append(f"금액 {fmt(oa) if oa else '미공개'} → {fmt(na)}")
             if old.get("effective_grade") != vals.get("grade") and vals.get("grade"):
                 msgs.append(f"등급 {old.get('effective_grade')} → {vals['grade']}")
             if msgs:

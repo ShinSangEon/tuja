@@ -226,7 +226,7 @@ def _core(name: str | None) -> str:
 def company_from_bld(bld_nm: str) -> str | None:
     """건물명에서 회사명 추정: '(주)대동 차량시설검사장 증축공사' → '대동'. 지명·주소형('논공읍 북리 1-48')은 None."""
     s = (bld_nm or "").strip()
-    if re.search(r"승강기|주차장|주차타워|경비실|수위실|화장실|폐수처리|위험물|옥외|담장|대문", s):
+    if re.search(r"승강기|주차장|주차타워|경비실|수위실|화장실|폐수처리|위험물|옥외|담장|대문|비축기지", s):
         return None  # 부속시설 허가 — 생산 증설 아님
     # '공장((주)미누스토리)' / '공장(코스맥스(주))' 처럼 괄호 안에 회사명이 있는 경우 먼저
     for g in re.findall(r"\(((?:[^()]|\(주\))+)\)", s):
@@ -253,9 +253,38 @@ def company_from_bld(bld_nm: str) -> str | None:
         s = toks[0]
     s = _NOISE.sub("", _STRIP.sub("", s))
     s = re.sub(r"(사무|검사장|승강기|주차장|기숙사|식당)$", "", s)
-    if s in {"품질관리", "공장시설", "사무", "창고", "공장", "시설"}:
+    if s in {"품질관리", "공장시설", "사무", "창고", "공장", "시설", "새만금", "국가핵심광물", "국가", "산업단지"}:
         return None
     return s if len(s) >= 2 and not re.fullmatch(r"[\d\W]+", s) else None
+
+
+_SECTOR_HINTS = [
+    ("바이오|제약|팜|약품|메디|생명", "제약·바이오"),
+    ("식품|제일제당|푸드|제과|제분|음료|유업|라면|농산|수산|영어조합|축산|사료", "식품·음료"),
+    ("반도체|세미|하이닉스|웨이퍼|파운드리", "반도체"),
+    ("디스플레이|오엘이디|LCD|OLED", "디스플레이"),
+    ("배터리|에너지솔루션|양극재|음극재|전해|엔솔|에코프로", "이차전지"),
+    ("모비스|위아|트랜시스|오토|자동차|차량|타이어|씨티알|부품", "자동차·부품"),
+    ("항공|우주|방산|디펜스|에어로", "항공·방산"),
+    ("조선|중공업|해양", "조선·해양"),
+    ("전선|일렉트릭|전기|전자|케이블|이노텍|전기전자", "전자부품"),
+    ("화학|케미칼|소재|머티리얼|첨단소재|폴리|수지|도료|코팅|필름", "화학·소재"),
+    ("제강|제철|금속|스틸|알루미늄|주물|단조|압연", "철강·금속"),
+    ("기계|엔진|머신|정밀|공작|로봇|제어기|밸브|펌프", "기계·장비"),
+    ("물류|로지스|창고|유통", "물류·창고"),
+    ("데이터센터|IDC", "데이터센터"),
+    ("섬유|텍스|방직|염색", "섬유"),
+    ("에너지|발전|가스|전력", "에너지"),
+]
+
+
+def guess_sector(name: str | None, bld_nm: str | None = None) -> str:
+    """회사명(+건물명)에서 업종 추정. 못 찾으면 '기타'."""
+    text = f"{name or ''} {bld_nm or ''}"
+    for pat, sector in _SECTOR_HINTS:
+        if re.search(pat, text, re.I):
+            return sector
+    return "기타"
 
 
 def link_signals(c, log_activity: bool = True) -> dict:
@@ -327,8 +356,8 @@ def link_signals(c, log_activity: bool = True) -> dict:
             "event": {"type": etype, "stage": stage, "summary": f"건축허가 원장에서 포착: {p['bld_nm']} {p['arch_gb']} 연면적 {int(float(p['tot_area'])):,}㎡ (허가 {p['pms_day'][:4]}.{p['pms_day'][4:6]}.{p['pms_day'][6:]}{', 착공 ' + p['real_stcns_day'] if p['real_stcns_day'] else ''}). 뉴스 미보도 — 현장·용도 확인 필요", "purpose": None},
             "investment": {"amount_krw": None, "amount_disclosed": False, "period_start": None, "period_end": None, "floor_area_m2": float(p["tot_area"])},
             "location": {"sido": sido, "sigungu": sigungu, "industrial_complex": None, "address_raw": p["plat_plc"], "precision": "address"},
-            "industry": {"sector": "기타", "process_hint": p["main_purps"]},
-            "utility_need": {"compressed_air": 2, "dryer": 1, "hmi_control": 1, "rationale": "업종 미확인 — 공장 신·증축 일반 수요"},
+            "industry": {"sector": guess_sector(name, p["bld_nm"]), "process_hint": p["main_purps"]},
+            "utility_need": {"compressed_air": 2, "dryer": 1, "hmi_control": 1, "rationale": "업종은 회사명으로 추정 — 공장 신·증설 일반 수요"},
             "confidence": 0.6, "_lat": p["lat"], "_lng": p["lng"],
         }
         c.execute("insert into extractions (document_id, model, is_relevant, payload, confidence) values (%s,'permit-registry',true,%s,0.6)", (did, Jsonb(payload)))
