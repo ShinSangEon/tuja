@@ -253,6 +253,9 @@ def company_from_bld(bld_nm: str) -> str | None:
         s = toks[0]
     s = _NOISE.sub("", _STRIP.sub("", s))
     s = re.sub(r"(사무|검사장|승강기|주차장|기숙사|식당)$", "", s)
+    s = re.sub(r"주식획사$", "", s)  # 원장 오타
+    if re.fullmatch(r"\d+호?동|[가-힣]{1,3}동|[A-Z]?\d*동", s):
+        return None  # '115호동', '가공동' 같은 건물 구분명
     if s in {"품질관리", "공장시설", "사무", "창고", "공장", "시설", "새만금", "국가핵심광물", "국가", "산업단지"}:
         return None
     return s if len(s) >= 2 and not re.fullmatch(r"[\d\W]+", s) else None
