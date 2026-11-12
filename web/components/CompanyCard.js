@@ -100,7 +100,6 @@ export default function CompanyCard({ corpCode, currentSignalId }) {
         <div className="co-rpt">
           <button className="link" onClick={() => setOpen((o) => !o)}>{open ? "생산설비 현황 접기" : "사업보고서 「생산설비 현황」 펼치기"} ({Math.round(c.facility_text.length / 100) / 10}천자)</button>
           {open && <ReportText text={c.facility_text} />}
-          {c.report_rcept_no && <a className="co-link" href={`https://dart.fss.or.kr/dsaf001/main.do?rcptNo=${c.report_rcept_no}`} target="_blank" rel="noreferrer">DART 원문 열기</a>}
         </div>
       )}
     </section>
