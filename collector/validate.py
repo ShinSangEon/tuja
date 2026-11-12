@@ -36,6 +36,14 @@ def _edit_distance(a: str, b: str) -> int:
     return prev[-1]
 
 
+def _fuzzy_same(a: str, b: str) -> bool:
+    """오타·표기 차이 허용. 짧은 이름은 글자 몇 개만 달라도 다른 회사라(켄뷰/심텍) 길이에 따라 허용 폭을 줄인다."""
+    n = min(len(a), len(b))
+    if n < 6:
+        return False  # '삼성전기'/'삼성전자' 처럼 한 글자 차이가 다른 회사인 경우가 많음
+    return _edit_distance(a, b) <= (2 if n >= 9 else 1)
+
+
 # ── 규모 등급 ───────────────────────────────────────────
 def size_class(amount_krw: int | None, floor_area_m2: float | None, event_type: str | None, stage: str | None) -> str:
     if amount_krw:
@@ -91,7 +99,7 @@ def is_same_project(x: dict, y: dict) -> bool:
     same_company = (
         cx == cy
         or (x.get("corp_code") and x.get("corp_code") == y.get("corp_code"))
-        or _edit_distance(cx, cy) <= 2
+        or _fuzzy_same(cx, cy)
     )
     if not same_company:
         return False

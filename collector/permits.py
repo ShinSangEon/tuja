@@ -40,6 +40,7 @@ alter table signals add column if not exists bjdong_cd text;
 alter table permits add column if not exists company_guess text;   -- 건물명에 회사가 없을 때 카카오 주소 조회로 찾은 회사
 alter table permits add column if not exists guess_src text;       -- 'kakao' = 찾음, 'none' = 못 찾음(회사 미확인 대형 공사)
 alter table permits add column if not exists guess_cands text;     -- 같은 지번에 업체가 여럿일 때 후보
+alter table permits add column if not exists guess_cat text;       -- 카카오 업종 분류 (업종 추정용)
 """
 
 
@@ -226,10 +227,14 @@ def _core(name: str | None) -> str:
     return _STRIP.sub("", name or "")
 
 
+_ACCESSORY = re.compile(r"승강기|주차장|주차타워|경비실|수위실|화장실|폐수처리|위험물|옥외|담장|대문|비축기지")
+_NOT_TARGET = re.compile(r"물류|로지스|메가허브|풀필먼트")  # 물류창고는 영업 대상 아님
+
+
 def company_from_bld(bld_nm: str) -> str | None:
     """건물명에서 회사명 추정: '(주)대동 차량시설검사장 증축공사' → '대동'. 지명·주소형('논공읍 북리 1-48')은 None."""
     s = (bld_nm or "").strip()
-    if re.search(r"승강기|주차장|주차타워|경비실|수위실|화장실|폐수처리|위험물|옥외|담장|대문|비축기지", s):
+    if _ACCESSORY.search(s):
         return None  # 부속시설 허가 — 생산 증설 아님
     # '공장((주)미누스토리)' / '공장(코스맥스(주))' 처럼 괄호 안에 회사명이 있는 경우 먼저
     for g in re.findall(r"\(((?:[^()]|\(주\))+)\)", s):
@@ -265,17 +270,18 @@ def company_from_bld(bld_nm: str) -> str | None:
 
 
 _SECTOR_HINTS = [
-    ("바이오|제약|팜|약품|메디|생명", "제약·바이오"),
+    ("바이오|제약|팜|파마|약품|의약|메디|생명", "제약·바이오"),
     ("식품|제일제당|푸드|제과|제분|음료|유업|라면|농산|수산|영어조합|축산|사료", "식품·음료"),
-    ("반도체|세미|하이닉스|웨이퍼|파운드리|메카로", "반도체"),
+    ("반도체|세미|하이닉스|웨이퍼|파운드리|메카로|이오테크닉스|디에프텍", "반도체"),
     ("디스플레이|오엘이디|LCD|OLED", "디스플레이"),
-    ("배터리|에너지솔루션|양극재|음극재|전해|엔솔|에코프로", "이차전지"),
+    ("배터리|에너지솔루션|양극재|음극재|전해|엔솔|에코프로|천보", "이차전지"),
     ("모비스|위아|트랜시스|오토|자동차|차량|타이어|씨티알|부품|대원강업", "자동차·부품"),
     ("항공|우주|방산|디펜스|에어로", "항공·방산"),
-    ("조선|중공업|해양", "조선·해양"),
+    ("조선|해양|선박", "조선·해양"),
+    ("중공업", "기계·장비"),
     ("전선|일렉트릭|전기|전자|케이블|이노텍|전기전자", "전자부품"),
     ("화학|케미칼|소재|머티리얼|첨단소재|폴리|수지|도료|코팅|필름", "화학·소재"),
-    ("제강|제철|금속|스틸|알루미늄|주물|단조|압연|특수강", "철강·금속"),
+    ("제강|제철|금속|스틸|알루미늄|주물|단조|압연|특수강|철강", "철강·금속"),
     ("기계|엔진|머신|정밀|공작|로봇|제어기|밸브|펌프|하이드|유압", "기계·장비"),
     ("물류|로지스|창고|유통", "물류·창고"),
     ("데이터센터|IDC", "데이터센터"),
@@ -298,7 +304,7 @@ _KAKAO_OK = ("제조", "공장", "기업", "제약", "산업용품")
 _KAKAO_NO = ("교통,수송", "산업단지", "보관,저장", "편의점", "음식점", "금융", "교육", "부동산", "전자제품판매", "단체,협회", "충전소", "구내식당")
 
 
-def _kakao_companies(plat_plc: str, key: str) -> list[str]:
+def _kakao_companies(plat_plc: str, key: str) -> list[tuple[str, str]]:
     """대지위치 지번으로 카카오 장소 검색 → 같은 지번의 제조업·공장·기업 이름 (민간 API, 회사 PC 에서 호출 가능)."""
     import requests
     plc = re.sub(r"번지$", "", (plat_plc or "").strip()).strip()
@@ -309,8 +315,8 @@ def _kakao_companies(plat_plc: str, key: str) -> list[str]:
     r = requests.get("https://dapi.kakao.com/v2/local/search/keyword.json", headers={"Authorization": f"KakaoAK {key}"},
                      params={"query": plc, "size": 15}, timeout=10)
     r.raise_for_status()
-    names: list[str] = []
-    gates: list[str] = []  # '○○ 구미1공장 정문' 같은 출입구 — 업체 항목이 없을 때만 사용
+    names: dict[str, str] = {}
+    gates: dict[str, str] = {}  # '○○ 구미1공장 정문' 같은 출입구 — 업체 항목이 없을 때만 사용
     for d in r.json().get("documents") or []:
         at = (d.get("address_name") or "").split()
         if len(at) < 2 or at[-1] != jibun or at[-2] != dong:
@@ -320,17 +326,14 @@ def _kakao_companies(plat_plc: str, key: str) -> list[str]:
         if not nm or len(nm[0]) < 2:
             continue
         if "입출구" in cat and re.search(r"(공장|사업장|단지).*(정문|후문|[동서남북]문)$", d.get("place_name") or ""):
-            if nm[0] not in gates:
-                gates.append(nm[0])
+            gates.setdefault(nm[0], "")
             continue
         if any(n in cat for n in _KAKAO_NO) or not any(k in cat for k in _KAKAO_OK):
             continue
-        if nm[0] not in names:
-            names.append(nm[0])
+        names.setdefault(nm[0], cat)
     names = names or gates
     # '코닝' / '코닝정밀소재' 처럼 한쪽이 다른 쪽의 앞부분이면 긴 이름 하나로
-    out = [n for n in names if not any(o != n and o.startswith(n) for o in names)]
-    return out
+    return [(n, c) for n, c in names.items() if not any(o != n and o.startswith(n) for o in names)]
 
 
 def resolve_names(c) -> dict:
@@ -347,6 +350,9 @@ def resolve_names(c) -> dict:
     for p in rows:
         if company_from_bld(p["bld_nm"]):
             continue
+        if p["bld_nm"] and (_ACCESSORY.search(p["bld_nm"]) or _NOT_TARGET.search(p["bld_nm"])):
+            c.execute("update permits set guess_src = 'skip' where id = %s", (p["id"],))  # 부속시설·물류 — 표시 안 함
+            continue
         plc = p["plat_plc"] or ""
         if plc not in cache:
             try:
@@ -357,9 +363,9 @@ def resolve_names(c) -> dict:
             time.sleep(0.1)
         names = cache[plc]
         if len(names) == 1:
-            c.execute("update permits set company_guess = %s, guess_src = 'kakao', guess_cands = null where id = %s", (names[0], p["id"])); ok += 1
+            c.execute("update permits set company_guess = %s, guess_src = 'kakao', guess_cands = null, guess_cat = %s where id = %s", (names[0][0], names[0][1] or None, p["id"])); ok += 1
         else:
-            c.execute("update permits set company_guess = null, guess_src = 'none', guess_cands = %s where id = %s", (", ".join(names[:4]) or None, p["id"])); unk += 1
+            c.execute("update permits set company_guess = null, guess_src = 'none', guess_cands = %s where id = %s", (", ".join(n for n, _ in names[:4]) or None, p["id"])); unk += 1
     log.info("permits name-resolve: kakao 확인 %d, 회사 미확인 %d", ok, unk)
     return {"resolved": ok, "unknown": unk}
 
@@ -439,7 +445,7 @@ def link_signals(c, log_activity: bool = True) -> dict:
             "event": {"type": etype, "stage": stage, "summary": f"건축허가 원장에서 포착: {label} {p['arch_gb']} 연면적 {int(float(p['tot_area'])):,}㎡ (허가 {p['pms_day'][:4]}.{p['pms_day'][4:6]}.{p['pms_day'][6:]}{', 착공 ' + p['real_stcns_day'] if p['real_stcns_day'] else ''}). 뉴스 미보도 — 현장·용도 확인 필요" + (" · 회사명은 허가 주소의 카카오 지도 업체로 추정" if via_kakao else ""), "purpose": None},
             "investment": {"amount_krw": None, "amount_disclosed": False, "period_start": None, "period_end": None, "floor_area_m2": float(p["tot_area"])},
             "location": {"sido": sido, "sigungu": sigungu, "industrial_complex": None, "address_raw": p["plat_plc"], "precision": "address"},
-            "industry": {"sector": guess_sector(name, p["bld_nm"]), "process_hint": p["main_purps"]},
+            "industry": {"sector": guess_sector(name, f"{p['bld_nm'] or ''} {p['guess_cat'] or ''}"), "process_hint": p["main_purps"]},
             "utility_need": {"compressed_air": 2, "dryer": 1, "hmi_control": 1, "rationale": "업종은 회사명으로 추정 — 공장 신·증설 일반 수요"},
             "confidence": 0.5 if via_kakao else 0.6, "_lat": p["lat"], "_lng": p["lng"],
         }
