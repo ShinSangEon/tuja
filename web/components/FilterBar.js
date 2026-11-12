@@ -94,6 +94,7 @@ export default function FilterBar({ value, onChange, bySido = {}, unlocated = 0 
         <div className="lg-row"><span className="lg-pin lg-c">C</span><span>점선 = 단일 보도(미확인)</span></div>
         <div className="lg-row"><span className="lg-chip dashed">기존 공장</span><span>선택한 회사의 등록공장 (누르면 생산품·주소)</span></div>
         <div className="lg-row"><span className="lg-chip"><i>착공</i>증축 4.8만㎡</span><span>같은 동네 건축허가 (누르면 허가일·착공일)</span></div>
+        <div className="lg-row"><span className="lg-chip unk"><i>미확인</i>신축 2.3만㎡</span><span>회사 미확인 대형 공사 (현장 확인 대상)</span></div>
       </section>
     </aside>
   );

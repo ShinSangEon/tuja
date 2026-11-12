@@ -20,8 +20,8 @@ function PermitCard({ p }) {
   const phase = p.use_apr_day ? "사용승인" : p.real_stcns_day ? "착공" : p.stcns_sched_day ? "착공 예정" : "허가";
   return (
     <>
-      <div className="map-card-h"><span className="map-card-tag pm">건축허가 · {phase}</span></div>
-      <div className="map-card-t">{p.bld_nm || `${p.arch_gb ?? ""} ${p.main_purps ?? "공장용지"}`.trim()}</div>
+      <div className="map-card-h"><span className={`map-card-tag ${p.unknown ? "unk" : "pm"}`}>{p.unknown ? "회사 미확인 대형 공사" : "건축허가"} · {phase}</span></div>
+      <div className="map-card-t">{p.unknown ? `${p.arch_gb ?? "공장"} ${fmtArea(p.tot_area)} — 건축주 미확인` : (p.bld_nm || `${p.arch_gb ?? ""} ${p.main_purps ?? "공장용지"}`.trim())}</div>
       <dl className="map-card-kv">
         <dt>구분</dt><dd>{p.arch_gb ?? "–"} · {p.main_purps ?? "용도 미기재"}</dd>
         <dt>연면적</dt><dd>{p.tot_area ? `${Math.round(p.tot_area).toLocaleString()}㎡` : "–"}{p.plat_area ? ` (대지 ${Math.round(p.plat_area).toLocaleString()}㎡)` : ""}</dd>
@@ -29,7 +29,13 @@ function PermitCard({ p }) {
         <dt>착공</dt><dd>{p.real_stcns_day ? fmtDay(p.real_stcns_day) : p.stcns_sched_day ? `예정 ${fmtDay(p.stcns_sched_day)}` : "–"}{p.use_apr_day ? ` · 사용승인 ${fmtDay(p.use_apr_day)}` : ""}</dd>
         <dt>위치</dt><dd>{p.plat_plc ?? "–"}{p.jiyuk ? ` · ${p.jiyuk}` : ""}</dd>
       </dl>
-      <p className="map-card-note">출처 국토교통부 건축HUB. 허가→착공 사이가 설비 사양이 정해지는 시점.</p>
+      {p.unknown ? (
+        <p className="map-card-note unk">
+          허가 원장에 회사명이 없고 지도에서도 업체를 못 찾은 건입니다.
+          {p.guess_cands ? <> 같은 지번 업체: <b>{p.guess_cands}</b> 중 하나일 수 있습니다.</> : <> 새 부지일 가능성이 큽니다.</>}
+          {" "}현장 공사 안내판(건축주·시공사)을 확인하면 영업 대상이 됩니다.
+        </p>
+      ) : <p className="map-card-note">출처 국토교통부 건축HUB. 허가→착공 사이가 설비 사양이 정해지는 시점.</p>}
     </>
   );
 }
@@ -49,7 +55,7 @@ function FactoryCard({ f }) {
   );
 }
 
-export default function KakaoMap({ signals, selectedId, onSelect, focus, factories = [], permits = [] }) {
+export default function KakaoMap({ signals, selectedId, onSelect, focus, factories = [], permits = [], unknownPermits = [] }) {
   const appkey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY ?? "";
   const [loading, error] = useKakaoLoader({ appkey, libraries: ["clusterer"] });
   const located = useMemo(() => signals.filter((s) => s.lat != null && s.lng != null), [signals]);
@@ -110,6 +116,13 @@ export default function KakaoMap({ signals, selectedId, onSelect, focus, factori
           </CustomOverlayMap>
         );
       })}
+      {unknownPermits.filter((p) => p.lat != null && !permits.some((q) => q.id === p.id)).map((p) => (
+        <CustomOverlayMap key={`u${p.id}`} position={{ lat: p.lat, lng: p.lng }} yAnchor={1} zIndex={active?.id === p.id ? 60 : 3}>
+          <button className={`pm-pin unk ${active?.id === p.id ? "on" : ""}`} onClick={(e) => { e.stopPropagation(); setActive({ kind: "permit", id: p.id, item: p }); }} title="회사 미확인 대형 공사 — 눌러서 내용 보기">
+            <span className="pm-pin-k">미확인</span>{p.arch_gb ?? "허가"} {fmtArea(p.tot_area)}
+          </button>
+        </CustomOverlayMap>
+      ))}
       {factories.filter((f) => f.lat != null).map((f) => (
         <CustomOverlayMap key={`f${f.id}`} position={{ lat: f.lat, lng: f.lng }} yAnchor={1} zIndex={active?.id === f.id ? 60 : 1}>
           <button className={`fac-pin ${active?.id === f.id ? "on" : ""}`} onClick={(e) => { e.stopPropagation(); setActive({ kind: "factory", id: f.id, item: f }); }} title="이 회사의 기존 등록공장 — 눌러서 내용 보기">기존 공장</button>

@@ -377,6 +377,15 @@ def cmd_permits_fetch(a):
 def cmd_permits_load(a):
     with db.conn() as c:
         permits.load_file(c, a.file)
+        permits.resolve_names(c)
+        permits.link_signals(c)
+
+
+def cmd_permits_resolve(_a):
+    """이미 적재된 허가 중 회사명 없는 대형 건을 카카오 지번 조회로 확인 (정부 사이트 호출 없음)."""
+    with db.conn() as c:
+        c.execute(permits.SCHEMA)
+        permits.resolve_names(c)
         permits.link_signals(c)
 
 
@@ -421,6 +430,7 @@ def main():
     p = sub.add_parser("permits-codes"); p.add_argument("--out", default="out/bjdong.json"); p.set_defaults(fn=cmd_permits_codes)
     p = sub.add_parser("permits-fetch"); p.add_argument("--codes", default="out/bjdong.json"); p.add_argument("--out", default="out/permits.json"); p.add_argument("--days", type=int, default=365); p.set_defaults(fn=cmd_permits_fetch)
     p = sub.add_parser("permits-load"); p.add_argument("--file", default="out/permits.json"); p.set_defaults(fn=cmd_permits_load)
+    p = sub.add_parser("permits-resolve"); p.set_defaults(fn=cmd_permits_resolve)
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     if not DATABASE_URL and a.cmd in ("collect", "ingest"):

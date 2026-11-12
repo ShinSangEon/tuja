@@ -12,7 +12,7 @@ async function load(days) {
   const p = globalThis.__radarPool;
   const num = (r) => ({ ...r, amount_krw: r.amount_krw == null ? null : Number(r.amount_krw) });
   const q = (sql, args) => p.query(sql, args).then((r) => r.rows).catch(() => []);
-  const [all, fresh, docs, permits, inProgress, matchedPermits, systemChanges] = await Promise.all([
+  const [all, fresh, docs, permits, inProgress, matchedPermits, systemChanges, unknownPermits] = await Promise.all([
     q(`select * from v_signals_map where size_class <> 'S' order by relevance_score desc, amount_krw desc nulls last`),
     q(`select * from v_signals_map where first_seen_at > now() - ($1 || ' days')::interval and size_class <> 'S' order by relevance_score desc`, [String(days)]),
     q(`select count(*)::int as n, count(*) filter (where fetched_at > now() - ($1 || ' days')::interval)::int as recent from raw_documents`, [String(days)]),
@@ -31,7 +31,11 @@ async function load(days) {
           and length(regexp_replace(s.company_name, '\\(주\\)|㈜|주식회사|\\s|\\(.*\\)', '', 'g')) >= 2
           and regexp_replace(p.bld_nm, '\\s', '', 'g') ilike '%' || regexp_replace(s.company_name, '\\(주\\)|㈜|주식회사|\\s|\\(.*\\)', '', 'g') || '%'`),
     q(`select a.signal_id, s.company_name, a.content, a.created_at from signal_activities a join signals s on s.id = a.signal_id
-        where a.kind = 'system' and a.created_at > now() - ($1 || ' days')::interval order by a.created_at desc limit 30`, [String(days)]),
+        where a.kind = 'system' and a.created_at > now() - ($1 || ' days')::interval order by a.created_at desc limit 30`, [String(days)]),,
+    // 회사 미확인 대형 공사: 허가 원장에 회사명이 없고 지도 조회로도 못 찾은 1만㎡+ 미준공 건
+    q(`select id, plat_plc, arch_gb, main_purps, tot_area::float as tot_area, pms_day, stcns_sched_day, real_stcns_day, guess_cands, lat, lng
+         from permits where guess_src = 'none' and coalesce(use_apr_day,'') = '' and pms_day >= to_char(now() - interval '730 days', 'YYYYMMDD')
+         order by tot_area desc limit 20`)
   ]);
   return { all: all.map(num), fresh: fresh.map(num), docs: docs[0] ?? { n: 0, recent: 0 }, permits, inProgress, matchedPermits, systemChanges };
 }
@@ -279,6 +283,28 @@ export default async function Report({ searchParams }) {
             </tbody>
           </table>
           <p className="muted small">건축HUB(국토교통부) 인허가 원장. 뉴스에 안 나와도 허가가 났으면 실제 공사 — 파란 줄은 기존 거래처, 회색 줄은 레이더에 있는 회사. 전국이 아니라 레이더 신호가 있는 동네만 조회한 결과.</p>
+        </section>
+      )}
+
+      {unknownPermits.length > 0 && (
+        <section>
+          <h2>회사 미확인 대형 공사 <small>허가는 났는데 건축주를 못 찾은 건 · 연면적 1만㎡ 이상 · 미준공 · 현장 확인 대상</small></h2>
+          <table className="rpt-table compact">
+            <thead><tr><th>연면적</th><th>구분</th><th>대지위치</th><th>거점</th><th>허가일</th><th>착공</th><th>같은 지번 업체(후보)</th></tr></thead>
+            <tbody>
+              {unknownPermits.map((pm) => { const n = nearestSite(pm.lat, pm.lng); return (
+                <tr key={pm.id}>
+                  <td className="num"><b>{Math.round(pm.tot_area).toLocaleString()}㎡</b></td>
+                  <td>{pm.arch_gb ?? ""} {pm.main_purps ?? ""}</td>
+                  <td>{shortPlc(pm.plat_plc)}</td>
+                  <td>{n ? `${n.name.replace(/\s*\(.*\)/, "")} ${Math.round(n.km)}km` : "–"}</td>
+                  <td className="num">{fmtDay8(pm.pms_day)}</td>
+                  <td className="num">{pm.real_stcns_day ? <span className="hot">{fmtDay8(pm.real_stcns_day)}</span> : pm.stcns_sched_day ? `예정 ${fmtDay8(pm.stcns_sched_day)}` : "–"}</td>
+                  <td>{pm.guess_cands ?? "없음 (새 부지 추정)"}</td>
+                </tr>); })}
+            </tbody>
+          </table>
+          <p className="muted small">공개 허가 데이터에는 건축주 이름이 없어 건물명 칸과 지도 업체 정보로 회사를 추정합니다. 둘 다 안 나온 건이 이 목록입니다. 현장 공사 안내판에서 건축주·시공사를 확인하면 영업 대상이 됩니다.</p>
         </section>
       )}
 

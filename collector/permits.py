@@ -37,6 +37,9 @@ create table if not exists permits (
 );
 create index if not exists permits_bjdong_idx on permits (sigungu_cd, bjdong_cd, pms_day desc);
 alter table signals add column if not exists bjdong_cd text;
+alter table permits add column if not exists company_guess text;   -- 건물명에 회사가 없을 때 카카오 주소 조회로 찾은 회사
+alter table permits add column if not exists guess_src text;       -- 'kakao' = 찾음, 'none' = 못 찾음(회사 미확인 대형 공사)
+alter table permits add column if not exists guess_cands text;     -- 같은 지번에 업체가 여럿일 때 후보
 """
 
 
@@ -290,6 +293,77 @@ def guess_sector(name: str | None, bld_nm: str | None = None) -> str:
     return "기타"
 
 
+LARGE_M2 = 10000
+_KAKAO_OK = ("제조", "공장", "기업", "제약", "산업용품")
+_KAKAO_NO = ("교통,수송", "산업단지", "보관,저장", "편의점", "음식점", "금융", "교육", "부동산", "전자제품판매", "단체,협회", "충전소", "구내식당")
+
+
+def _kakao_companies(plat_plc: str, key: str) -> list[str]:
+    """대지위치 지번으로 카카오 장소 검색 → 같은 지번의 제조업·공장·기업 이름 (민간 API, 회사 PC 에서 호출 가능)."""
+    import requests
+    plc = re.sub(r"번지$", "", (plat_plc or "").strip()).strip()
+    toks = plc.split()
+    if len(toks) < 3 or not re.search(r"\d", toks[-1]):
+        return []
+    jibun, dong = toks[-1], toks[-2]
+    r = requests.get("https://dapi.kakao.com/v2/local/search/keyword.json", headers={"Authorization": f"KakaoAK {key}"},
+                     params={"query": plc, "size": 15}, timeout=10)
+    r.raise_for_status()
+    names: list[str] = []
+    gates: list[str] = []  # '○○ 구미1공장 정문' 같은 출입구 — 업체 항목이 없을 때만 사용
+    for d in r.json().get("documents") or []:
+        at = (d.get("address_name") or "").split()
+        if len(at) < 2 or at[-1] != jibun or at[-2] != dong:
+            continue
+        cat = d.get("category_name") or ""
+        nm = re.sub(r"\(주\)|㈜|주식회사", "", d.get("place_name") or "").strip().split()
+        if not nm or len(nm[0]) < 2:
+            continue
+        if "입출구" in cat and re.search(r"(공장|사업장|단지).*(정문|후문|[동서남북]문)$", d.get("place_name") or ""):
+            if nm[0] not in gates:
+                gates.append(nm[0])
+            continue
+        if any(n in cat for n in _KAKAO_NO) or not any(k in cat for k in _KAKAO_OK):
+            continue
+        if nm[0] not in names:
+            names.append(nm[0])
+    names = names or gates
+    # '코닝' / '코닝정밀소재' 처럼 한쪽이 다른 쪽의 앞부분이면 긴 이름 하나로
+    out = [n for n in names if not any(o != n and o.startswith(n) for o in names)]
+    return out
+
+
+def resolve_names(c) -> dict:
+    """건물명에 회사가 없는 대형(1만㎡+) 미준공 신·증·개축 허가 → 카카오 지번 조회로 회사 추정.
+    하나로 좁혀지면 company_guess 에 저장(→ 신호 등록), 아니면 guess_src='none' (지도에 '회사 미확인 대형 공사')."""
+    import time
+    key = os.getenv("KAKAO_REST_KEY", "")
+    if not key:
+        return {"resolved": 0, "unknown": 0}
+    rows = c.execute("""select id, plat_plc, bld_nm from permits
+                        where guess_src is null and tot_area >= %s and coalesce(use_apr_day,'') = '' and arch_gb in ('신축','증축','개축')""", (LARGE_M2,)).fetchall()
+    cache: dict = {}
+    ok = unk = 0
+    for p in rows:
+        if company_from_bld(p["bld_nm"]):
+            continue
+        plc = p["plat_plc"] or ""
+        if plc not in cache:
+            try:
+                cache[plc] = _kakao_companies(plc, key)
+            except Exception as e:  # noqa: BLE001
+                log.warning("kakao lookup failed %s: %s", plc, e)
+                continue
+            time.sleep(0.1)
+        names = cache[plc]
+        if len(names) == 1:
+            c.execute("update permits set company_guess = %s, guess_src = 'kakao', guess_cands = null where id = %s", (names[0], p["id"])); ok += 1
+        else:
+            c.execute("update permits set company_guess = null, guess_src = 'none', guess_cands = %s where id = %s", (", ".join(names[:4]) or None, p["id"])); unk += 1
+    log.info("permits name-resolve: kakao 확인 %d, 회사 미확인 %d", ok, unk)
+    return {"resolved": ok, "unknown": unk}
+
+
 def link_signals(c, log_activity: bool = True) -> dict:
     """1) 허가 건물명에 레이더 회사명이 보이면 단계를 인허가/착공으로 승격(기존 단계가 더 앞설 때만)
        2) 레이더에 없는 1만㎡ 이상 공장 허가는 raw_documents+extractions 로 등록 → rebuild/ingest 가 신호로 만든다."""
@@ -297,7 +371,7 @@ def link_signals(c, log_activity: bool = True) -> dict:
     from psycopg.types.json import Jsonb
     promoted, created = 0, 0
     sigs = c.execute("select id, company_name, company_norm, stage, bjdong_cd, sido from signals where not archived and bjdong_cd is not null").fetchall()
-    perms = c.execute("select * from permits where bld_nm is not null").fetchall()
+    perms = c.execute("select * from permits where bld_nm is not null or company_guess is not null").fetchall()
     by_dong: dict = {}
     for p in perms:
         by_dong.setdefault(p["sigungu_cd"] + p["bjdong_cd"], []).append(p)
@@ -306,7 +380,7 @@ def link_signals(c, log_activity: bool = True) -> dict:
         core = _core(s["company_name"])
         if len(core) < 2:
             continue
-        hits = [p for p in by_dong.get(s["bjdong_cd"], []) if core.lower() in _core(p["bld_nm"]).lower()]
+        hits = [p for p in by_dong.get(s["bjdong_cd"], []) if core.lower() in _core(f"{p['bld_nm'] or ''} {p['company_guess'] or ''}").lower()]
         if not hits:
             continue
         matched_permit_ids.update(p["id"] for p in hits)
@@ -316,7 +390,7 @@ def link_signals(c, log_activity: bool = True) -> dict:
             c.execute("update signals set stage = %s where id = %s", (target, s["id"]))
             if log_activity:
                 labels = {"permit": "인허가", "construction": "착공", "completed": "준공"}
-                msg = f"건축허가 원장 확인({best['bld_nm']}, {best['arch_gb'] or ''} {int(best['tot_area'] or 0):,}㎡, 허가 {best['pms_day']}) → 단계 {labels[target]}"
+                msg = f"건축허가 원장 확인({best['bld_nm'] or best['company_guess']}, {best['arch_gb'] or ''} {int(best['tot_area'] or 0):,}㎡, 허가 {best['pms_day']}) → 단계 {labels[target]}"
                 # rebuild 마다 단계가 원복→재승격되므로 같은 내용의 기록이 이미 있으면 다시 남기지 않음
                 if not c.execute("select 1 from signal_activities where signal_id = %s and kind = 'system' and content = %s", (s["id"], msg)).fetchone():
                     c.execute("insert into signal_activities (signal_id, actor, kind, content) values (%s,'시스템','system',%s)", (s["id"], msg))
@@ -331,8 +405,12 @@ def link_signals(c, log_activity: bool = True) -> dict:
         if (p["arch_gb"] or "") not in ("신축", "증축", "개축"):
             continue
         name = company_from_bld(p["bld_nm"])
+        via_kakao = False
+        if not name and p["company_guess"]:
+            name, via_kakao = p["company_guess"], True
         if not name:
             continue
+        label = p["bld_nm"] if (p["bld_nm"] and not via_kakao) else f"{name} ({p['bld_nm'] or '건물명 미기재'})"
         norm = normalize_company(name, aliases)
         if norm in known or any(norm in k or k in norm for k in known if len(k) >= 3 and len(norm) >= 3):
             continue
@@ -343,8 +421,8 @@ def link_signals(c, log_activity: bool = True) -> dict:
         sido, sigungu = split_region(p["plat_plc"] or "")
         stage = "construction" if p["real_stcns_day"] else "permit"
         etype = "new_plant" if p["arch_gb"] == "신축" else "expansion"
-        title = f"[건축허가] {p['bld_nm']} — {p['arch_gb']} {int(float(p['tot_area'])):,}㎡"
-        body = (f"건축HUB 건축인허가 원장. 대지위치 {p['plat_plc']}. 건물명 {p['bld_nm']}. 구분 {p['arch_gb']}, 주용도 {p['main_purps'] or '미기재'}, "
+        title = f"[건축허가] {label} — {p['arch_gb']} {int(float(p['tot_area'])):,}㎡"
+        body = (f"건축HUB 건축인허가 원장. 대지위치 {p['plat_plc']}. 건물명 {p['bld_nm'] or '미기재'}. 구분 {p['arch_gb']}, 주용도 {p['main_purps'] or '미기재'}, "
                 f"연면적 {int(float(p['tot_area'])):,}㎡, 대지면적 {int(float(p['plat_area'] or 0)):,}㎡, 용도지역 {p['jiyuk'] or '-'}. "
                 f"허가일 {p['pms_day']}, 착공예정 {p['stcns_sched_day'] or '-'}, 실착공 {p['real_stcns_day'] or '-'}.")
         pub = None
@@ -358,12 +436,12 @@ def link_signals(c, log_activity: bool = True) -> dict:
         payload = {
             "doc_id": str(did), "is_relevant": True,
             "company": {"name_raw": name, "name_norm": norm, "group": None, "listed": None, "corp_code": None},
-            "event": {"type": etype, "stage": stage, "summary": f"건축허가 원장에서 포착: {p['bld_nm']} {p['arch_gb']} 연면적 {int(float(p['tot_area'])):,}㎡ (허가 {p['pms_day'][:4]}.{p['pms_day'][4:6]}.{p['pms_day'][6:]}{', 착공 ' + p['real_stcns_day'] if p['real_stcns_day'] else ''}). 뉴스 미보도 — 현장·용도 확인 필요", "purpose": None},
+            "event": {"type": etype, "stage": stage, "summary": f"건축허가 원장에서 포착: {label} {p['arch_gb']} 연면적 {int(float(p['tot_area'])):,}㎡ (허가 {p['pms_day'][:4]}.{p['pms_day'][4:6]}.{p['pms_day'][6:]}{', 착공 ' + p['real_stcns_day'] if p['real_stcns_day'] else ''}). 뉴스 미보도 — 현장·용도 확인 필요" + (" · 회사명은 허가 주소의 카카오 지도 업체로 추정" if via_kakao else ""), "purpose": None},
             "investment": {"amount_krw": None, "amount_disclosed": False, "period_start": None, "period_end": None, "floor_area_m2": float(p["tot_area"])},
             "location": {"sido": sido, "sigungu": sigungu, "industrial_complex": None, "address_raw": p["plat_plc"], "precision": "address"},
             "industry": {"sector": guess_sector(name, p["bld_nm"]), "process_hint": p["main_purps"]},
             "utility_need": {"compressed_air": 2, "dryer": 1, "hmi_control": 1, "rationale": "업종은 회사명으로 추정 — 공장 신·증설 일반 수요"},
-            "confidence": 0.6, "_lat": p["lat"], "_lng": p["lng"],
+            "confidence": 0.5 if via_kakao else 0.6, "_lat": p["lat"], "_lng": p["lng"],
         }
         c.execute("insert into extractions (document_id, model, is_relevant, payload, confidence) values (%s,'permit-registry',true,%s,0.6)", (did, Jsonb(payload)))
         created += 1

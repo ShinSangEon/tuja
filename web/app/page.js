@@ -17,6 +17,10 @@ export default function Page() {
   const [lookup, setLookup] = useState(null); // 실시간 검색어
   const [factories, setFactories] = useState([]); // 선택한 회사의 기존 공장 (지도 연한 핀)
   const [permits, setPermits] = useState([]); // 같은 법정동 건축허가 (지도 삼각 핀)
+  const [unknownPermits, setUnknownPermits] = useState([]); // 회사 미확인 대형 공사 (항상 표시)
+  useEffect(() => {
+    fetch("/api/permits?unknown=1").then((r) => r.json()).then((d) => setUnknownPermits(d.permits ?? [])).catch(() => {});
+  }, []);
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -71,7 +75,7 @@ export default function Page() {
       <div className="body">
         <FilterBar value={filters} onChange={(f) => { setFilters(f); setSelected(null); }} bySido={data?.bySido ?? {}} unlocated={data?.unlocated ?? 0} />
         <main className="map">
-          <KakaoMap signals={signals} selectedId={selected?.id ?? null} onSelect={setSelected} focus={focus} factories={selected ? factories : []} permits={selected ? permits : []} />
+          <KakaoMap signals={signals} selectedId={selected?.id ?? null} onSelect={setSelected} focus={focus} factories={selected ? factories : []} permits={selected ? permits : []} unknownPermits={unknownPermits} />
         </main>
         <section className="side">
           {selected

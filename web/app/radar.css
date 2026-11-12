@@ -297,3 +297,15 @@
 .radar .pb-f textarea, .radar .pb-f input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1.5px solid var(--line); border-radius: var(--r); font: inherit; font-weight: 400; font-size: 12.5px; color: var(--ink); background: #fff; resize: vertical; }
 .radar .pb-actions { display: flex; justify-content: flex-end; gap: 6px; }
 .radar .mini.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+/* 회사 미확인 대형 공사 */
+.pm-pin.unk { border-style: dashed; border-color: #7A3FB0; color: #4B2578; background: #FBF7FF; }
+.pm-pin.unk::after { border-color: #7A3FB0; border-right-style: dashed; border-bottom-style: dashed; }
+.pm-pin.unk .pm-pin-k { background: #7A3FB0; }
+.pm-pin.unk:hover, .pm-pin.unk.on { background: #7A3FB0; color: #fff; }
+.pm-pin.unk:hover::after, .pm-pin.unk.on::after { background: #7A3FB0; }
+.pm-pin.unk:hover .pm-pin-k, .pm-pin.unk.on .pm-pin-k { background: #fff; color: #7A3FB0; }
+.map-card-tag.unk { background: #7A3FB0; color: #fff; }
+.map-card-note.unk { color: #4B2578; }
+.lg-chip.unk { border-style: dashed; border-color: #7A3FB0; color: #4B2578; }
+.lg-chip.unk i { background: #7A3FB0; }
