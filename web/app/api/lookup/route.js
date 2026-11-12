@@ -64,7 +64,7 @@ export async function GET(req) {
                     const dj = await dr.json();
                     const KW = ['신규시설투자', '유형자산양수', '비유동자산취득', '시설투자', '공장'];
                     result.dart = (dj.list ?? []).filter((i) => KW.some((k) => i.report_nm.includes(k))).map((i) => ({
-                        title: `[${i.corp_name}] ${i.report_nm.trim()}`, url: `https://dart.fss.or.kr/dsaf001/main.do?rcptNo=${i.rcept_no}`, source: 'DART', tier: 1,
+                        title: `[${i.corp_name}] ${i.report_nm.trim()}`, url: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${i.rcept_no}`, source: 'DART', tier: 1,
                         published_at: `${i.rcept_dt.slice(0, 4)}-${i.rcept_dt.slice(4, 6)}-${i.rcept_dt.slice(6, 8)}T00:00:00+09:00`, kind: 'dart', rcept_no: i.rcept_no, corp_code: i.corp_code, corp_name: i.corp_name,
                     }));
                 } else result.errors.push('DART_API_KEY 미설정 — 공시는 건너뜀');

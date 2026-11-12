@@ -125,7 +125,7 @@ def fetch(since: date, include_body: bool = True) -> list[dict]:
     docs = []
     for item in list_disclosures(since):
         rcept_no = item["rcept_no"]
-        url = f"https://dart.fss.or.kr/dsaf001/main.do?rcptNo={rcept_no}"
+        url = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}"
         body = ""
         is_funding = any(k in item["report_nm"] for k in FUNDING_REPORTS)
         if include_body or is_funding:
