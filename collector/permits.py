@@ -78,13 +78,26 @@ def bjdong_code(lat: float, lng: float, kakao_key: str) -> str | None:
 
 
 def fetch_bjdong(sigungu_cd: str, bjdong_cd: str, since: date, max_pages: int = 5) -> list[dict]:
+    import time
     out = []
     for page in range(1, max_pages + 1):
-        r = requests.get(URL, params={"serviceKey": KEY, "sigunguCd": sigungu_cd, "bjdongCd": bjdong_cd,
-                                      "startDate": since.strftime("%Y%m%d"), "endDate": date.today().strftime("%Y%m%d"),
-                                      "numOfRows": 100, "pageNo": page, "_type": "json"}, timeout=30)
-        r.raise_for_status()
-        body = r.json().get("response", {}).get("body", {})
+        # 건축HUB 게이트웨이는 간헐적으로 503·빈 응답·연결 끊김을 낸다 → 간격을 늘려 가며 최대 4번
+        last = None
+        for wait in (0, 3, 8, 20):
+            if wait:
+                time.sleep(wait)
+            try:
+                r = requests.get(URL, params={"serviceKey": KEY, "sigunguCd": sigungu_cd, "bjdongCd": bjdong_cd,
+                                              "startDate": since.strftime("%Y%m%d"), "endDate": date.today().strftime("%Y%m%d"),
+                                              "numOfRows": 100, "pageNo": page, "_type": "json"}, timeout=30)
+                r.raise_for_status()
+                body = r.json().get("response", {}).get("body", {})
+                last = None
+                break
+            except Exception as e:  # noqa: BLE001
+                last = e
+        if last is not None:
+            raise last
         items = body.get("items", {}).get("item", []) if isinstance(body.get("items"), dict) else []
         if isinstance(items, dict):
             items = [items]
