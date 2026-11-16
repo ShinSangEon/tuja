@@ -246,7 +246,7 @@ def _core(name: str | None) -> str:
     return _STRIP.sub("", name or "")
 
 
-_ACCESSORY = re.compile(r"승강기|주차장|주차타워|경비실|수위실|화장실|폐수처리|위험물|옥외|담장|대문|비축기지")
+_ACCESSORY = re.compile(r"보관장|야적장|승강기|주차장|주차타워|경비실|수위실|화장실|폐수처리|위험물|옥외|담장|대문|비축기지")
 _NOT_TARGET_RE = re.compile(r"물류|로지스|메가허브|풀필먼트|택배|유통센터|지식산업센터|데이[타터]\s*센터|KD센터|생활복리|글로비스")
 
 
