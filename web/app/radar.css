@@ -324,3 +324,6 @@
 .lg-chip.unk i { background: #7A3FB0; }
 
 .lg-dot-unk { display: inline-block; width: 12px; height: 12px; margin: 0 9px 0 6px; border-radius: 50%; background: #7A3FB0; border: 2px solid #fff; box-shadow: 0 0 0 1.5px #7A3FB0; }
+
+.radar .co-rpt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.radar .co-rpt > .rpt-text, .radar .co-rpt > div, .radar .co-rpt > pre { flex-basis: 100%; }

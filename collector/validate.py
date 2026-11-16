@@ -111,11 +111,12 @@ def is_same_project(x: dict, y: dict) -> bool:
     if x.get("sigungu") and y.get("sigungu") and x["sigungu"] != y["sigungu"]:
         return False
     ax, ay = x.get("amount_krw"), y.get("amount_krw")
-    if not _same_type(x["event_type"], y["event_type"]) and not (ax and ax == ay):  # 금액이 똑같으면 유형 표기만 다른 같은 건
+    # 건축허가 원장은 '허가일' 기준이라 뉴스보다 한참 앞서고, 뉴스의 '신공장'이 원장에는 기존 부지 '증축'으로 적힌다
+    # — 같은 시군구의 같은 회사면 기간·유형이 달라도 같은 공사로 본다
+    permit_pair = any(str(u.get("url") or "").startswith("permit://") for u in x.get("_sources", []) + y.get("_sources", [])) and x.get("sigungu") and x.get("sigungu") == y.get("sigungu")
+    if not _same_type(x["event_type"], y["event_type"]) and not (ax and ax == ay) and not permit_pair:  # 금액이 똑같으면 유형 표기만 다른 같은 건
         return False
     dx, dy = x.get("published_at"), y.get("published_at")
-    # 건축허가 원장은 '허가일' 기준이라 뉴스보다 한참 앞설 수 있다 — 같은 시군구의 같은 회사면 기간 제한 없이 같은 공사로 본다
-    permit_pair = any(str(u.get("url") or "").startswith("permit://") for u in x.get("_sources", []) + y.get("_sources", [])) and x.get("sigungu") and x.get("sigungu") == y.get("sigungu")
     if dx and dy and abs((dx - dy).days) > DEDUPE_WINDOW_DAYS and not permit_pair:
         return False
     ax, ay = x.get("amount_krw"), y.get("amount_krw")

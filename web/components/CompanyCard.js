@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fmtKrw } from "@/lib/format";
+import { fmtKrw, sidoName } from "@/lib/format";
 
 /** 억 단위 짧게: 2조 9,387억 → "2.9조", 328억 → "328억", 음수 → "-12억" */
 function eok(v) {
@@ -90,7 +90,7 @@ export default function CompanyCard({ corpCode, currentSignalId }) {
       {others.length > 0 && (
         <div className="co-others">
           <span className="co-k">같은 회사 다른 건</span>
-          {others.map((s) => <span key={s.id} className="co-chip">{s.sido ? s.sido.slice(0, 2) : "?"} {s.sigungu ?? ""} · {fmtKrw(s.amount_krw)}</span>)}
+          {others.map((s) => <span key={s.id} className="co-chip">{sidoName(s.sido) ?? ""} {s.sigungu ?? ""} · {fmtKrw(s.amount_krw)}</span>)}
         </div>
       )}
 
