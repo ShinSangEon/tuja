@@ -34,7 +34,7 @@ export function NeedBars({ s }) {
   );
 }
 
-export function SignalList({ signals, selectedId, onSelect }) {
+export function SignalList({ signals, selectedId, onSelect, loading = false }) {
   const hot = signals.filter((s) => priority(s.relevance_score) === "hot");
   const rest = signals.filter((s) => priority(s.relevance_score) !== "hot");
   const Row = ({ s }) => (
@@ -63,7 +63,9 @@ export function SignalList({ signals, selectedId, onSelect }) {
       {hot.map((s) => <Row key={s.id} s={s} />)}
       {rest.length > 0 && <div className="list-h"><span className="dot watch" />모니터링·보관 <b>{rest.length}</b></div>}
       {rest.map((s) => <Row key={s.id} s={s} />)}
-      {signals.length === 0 && <div className="empty">조건에 맞는 건이 없습니다. 필터를 풀거나 관련도를 낮춰 보세요.</div>}
+      {signals.length === 0 && (loading
+        ? <div className="empty" role="status">신호를 불러오는 중입니다…</div>
+        : <div className="empty">조건에 맞는 건이 없습니다. 필터를 풀거나 관련도를 낮춰 보세요.</div>)}
     </div>
   );
 }

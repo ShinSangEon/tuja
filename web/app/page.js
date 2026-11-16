@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import FilterBar, { DEFAULT_FILTERS } from "@/components/FilterBar";
 import { SignalDetail, SignalList } from "@/components/SignalPanel";
 import LookupPanel from "@/components/LookupPanel";
-import { fmtDate, priority } from "@/lib/format";
+import { fmtDate, fmtKrw, priority } from "@/lib/format";
 
 const KakaoMap = dynamic(() => import("@/components/KakaoMap"), { ssr: false });
 
@@ -58,8 +58,8 @@ export default function Page() {
           <span className="brand-sub">국내 공장 신설·증설·개조 신호 → ES사업부 영업 타겟</span>
         </div>
         <div className="brief">
-          조건에 맞는 <b>{data?.count ?? 0}</b>건 중 즉시 검토 <b className="hot">{hot}</b>건,
-          투자 합계 <b>{bigSum ? `${Math.round(bigSum / 1e8).toLocaleString()}억` : "–"}</b>
+          {data ? <>조건에 맞는 <b>{data.count ?? 0}</b>건 중 즉시 검토 <b className="hot">{hot}</b>건,
+          투자 합계 <b>{bigSum ? fmtKrw(bigSum) : "–"}</b></> : <span>불러오는 중…</span>}
           <a className="report-btn" href="/report">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6" /><path d="M8 13h8M8 17h5" /></svg>
             주간 보고 보기
@@ -92,7 +92,7 @@ export default function Page() {
                       <button className="link" onClick={() => setLookup(filters.q.trim())}>구글뉴스·DART에서 바로 찾기</button>
                     </div>
                   )}
-                  <SignalList signals={signals} selectedId={null} onSelect={setSelected} />
+                  <SignalList signals={signals} selectedId={null} onSelect={setSelected} loading={!data} />
                 </>}
         </section>
       </div>
