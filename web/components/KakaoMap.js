@@ -67,7 +67,7 @@ export default function KakaoMap({ signals, selectedId, onSelect, focus, factori
   useEffect(() => {
     if (!map || fLat == null || fLng == null || !window.kakao?.maps) return;
     const ll = new window.kakao.maps.LatLng(Number(fLat), Number(fLng));
-    if (map.getLevel() > 7) map.setLevel(7, { anchor: ll });
+    if (map.getLevel() > 6) map.setLevel(6, { anchor: ll }); // 묶음(클러스터)이 풀리는 단계까지 확대 — 선택한 핀이 숫자 원에 가려지지 않게
     map.panTo(ll);
   }, [map, fLat, fLng]);
   const hotIds = useMemo(() => new Set(located.filter((s) => priority(s.relevance_score) === "hot").map((s) => s.id)), [located]);
