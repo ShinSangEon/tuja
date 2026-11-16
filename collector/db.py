@@ -134,11 +134,9 @@ def load_geocode_cache(c) -> dict:
 
 
 def save_geocode_cache(c, cache: dict, known: set[str]):
-    for q, v in cache.items():
-        if q in known:
-            continue
-        c.execute("insert into geocode_cache (query, lat, lng, ok) values (%s,%s,%s,%s) on conflict (query) do nothing",
-                  (q, v[0] if v else None, v[1] if v else None, v is not None))
+    rows = [(q, v[0] if v else None, v[1] if v else None, v is not None) for q, v in cache.items() if q not in known]
+    if rows:
+        c.cursor().executemany("insert into geocode_cache (query, lat, lng, ok) values (%s,%s,%s,%s) on conflict (query) do nothing", rows)
 
 
 def load_existing_signals(c) -> list[dict]:

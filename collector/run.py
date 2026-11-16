@@ -196,14 +196,20 @@ def cmd_ingest(a):
         log.info("ingest (file mode): %d results → %d candidates → %d signals → %s", len(results), len(cands), len(sigs), prev_path)
 
 
-def geocode_target_factories(c, cache: dict) -> int:
-    """신호에 연결된 회사들의 등록공장 좌표 채우기 (지도 연한 핀용). 회사당 몇 건이라 호출 적음."""
+def geocode_target_factories(c, cache: dict, deadline: float | None = None) -> int:
+    """신호에 연결된 회사들의 등록공장 좌표 채우기 (지도 연한 핀용). 회사마다 저장하고, 시간 예산을 넘으면 멈춘다(다음 실행이 이어받음)."""
+    import time
     n = 0
     try:
-        for sig in c.execute("select company_norm, corp_code from signals where not archived").fetchall():
+        for sig in c.execute("select company_norm, corp_code from signals where not archived order by relevance_score desc").fetchall():
+            if deadline and time.time() > deadline:
+                log.info("factory pins: 시간 예산 소진 — 나머지는 다음 실행에서")
+                break
             corp_name = factories.corp_name_of(c, sig["corp_code"])
             rows = [r for r in factories.for_company(c, sig["company_norm"], corp_name) if not r.get("lat") and r.get("geocode_status") != "fail2"][:12]
-            factories.ensure_geocoded(c, rows, geocode.geocode_address, cache)
+            if rows:
+                factories.ensure_geocoded(c, rows, geocode.geocode_address, cache)
+                c.commit()
             n += len(rows)
     except Exception as e:  # noqa: BLE001
         log.warning("factory geocode skipped: %s", e)
@@ -212,8 +218,17 @@ def geocode_target_factories(c, cache: dict) -> int:
 
 # ── rebuild: 추출 결과 전체를 다시 병합 (규칙·버그 수정 후) ──
 def cmd_rebuild(a):
-    """signals 를 비우고 extractions 전체로 다시 만든다. 수동 입력(owner, manual_grade 등)은 사라진다."""
+    """signals 를 비우고 extractions 전체로 다시 만든다. 수동 입력(owner, manual_grade 등)은 스냅샷 후 복원.
+    원격 실행 제한(3분)에 걸려도 안전하도록: ① 좌표 계산은 지우기 '전'에 하고 중간중간 저장(중단돼도 다음 실행이 이어받음)
+    ② 지우고 다시 넣기는 DB 작업만이라 짧다 ③ 등록공장 핀 좌표는 맨 끝, 시간 예산 안에서만."""
+    import time
+    deadline = time.time() + float(os.getenv("REBUILD_BUDGET_SEC", "150"))
     with db.conn() as c:
+        try:
+            permits.link_signals(c, log_activity=False)  # 대형 허가 → 추출 행 생성 (이번 병합에 포함되도록 먼저)
+            c.commit()
+        except Exception as e:  # noqa: BLE001
+            log.warning("permits link (pre) failed: %s", e)
         aliases = db.load_aliases(c)
         cust = customers.Matcher(c)
         cands = []
@@ -224,26 +239,30 @@ def cmd_rebuild(a):
         merged = validate.consolidate(cands)
         complexes, regions, cache = db.load_complexes(c), db.load_regions(c), db.load_geocode_cache(c)
         known = set(cache)
-        snap = db.snapshot_manual(c)
-        try:
-            permits.link_signals(c, log_activity=False)  # 대형 허가 → 추출 행 생성 (이번 병합에 포함)
-        except Exception as e:  # noqa: BLE001
-            log.warning("permits link (pre) failed: %s", e)
-        db.wipe_signals(c)
         code_by_norm = {r["name_norm"]: r["corp_code"] for r in c.execute("select name_norm, corp_code from corp_codes where name_norm is not null").fetchall()}
-        for s in merged:
+        ready = []
+        for i, s in enumerate(merged):  # ① 좌표 계산 — 아직 아무것도 지우지 않았으므로 중간 저장해도 안전
             if not s.get("corp_code") and code_by_norm.get(s["company_norm"]):
                 s["corp_code"] = code_by_norm[s["company_norm"]]
             s["customer_name"] = cust.match(s.get("company_norm"), s.get("company_group"))
-            db.upsert_signal(c, geocode_with_factories(c, s, complexes, regions, cache))
-        log.info("factory pins geocoded: %d", geocode_target_factories(c, cache))
-        db.save_geocode_cache(c, cache, known)
+            ready.append(geocode_with_factories(c, s, complexes, regions, cache))
+            if i % 15 == 14:
+                db.save_geocode_cache(c, cache, known); known |= set(cache); c.commit()
+        db.save_geocode_cache(c, cache, known); known |= set(cache); c.commit()
+        log.info("geocode done: %d signals (%.0fs left)", len(ready), deadline - time.time())
+        snap = db.snapshot_manual(c)
+        db.wipe_signals(c)  # ② 지우고 다시 넣기 — 한 트랜잭션
+        for s in ready:
+            db.upsert_signal(c, s)
         log.info("manual fields/activities restored: %d/%d", db.restore_manual(c, snap), len(snap))
         try:
             permits.link_signals(c)  # 허가 원장으로 단계 승격
         except Exception as e:  # noqa: BLE001
             log.warning("permits link (post) failed: %s", e)
+        c.commit()
         log.info("rebuild: %d extractions → %d candidates → %d signals", len(cands), len(cands), len(merged))
+        log.info("factory pins geocoded: %d", geocode_target_factories(c, cache, deadline))  # ③
+        db.save_geocode_cache(c, cache, known)
 
 
 # ── 회사 카드 ─────────────────────────────────────────
