@@ -310,6 +310,11 @@ _SECTOR_HINTS = [
     ("테이팩스|필맥스", "화학·소재"),
     ("이구스", "기계·장비"),
     ("에프쓰리", "식품·음료"),
+    ("엠시트|동희|세원테크", "자동차·부품"),
+    ("ENF|이엔에프", "반도체"),
+    ("켐트로스|패키징", "화학·소재"),
+    ("센추리|성일SIM", "기계·장비"),
+    ("프리텍", "전자부품"),
     ("싸이머|머크|인테그리스|한양이엔지|엔펄스|엠이엠씨|테크엘|후지킨|디투엔지니어링|세미콘|제이스로보틱스", "반도체"),
     ("에스에프에이|DN솔루션즈|솔루션즈|산기$|티엠씨", "기계·장비"),
     ("SDI|세방전지|종루이|윤성에프앤씨", "이차전지"),
@@ -344,6 +349,7 @@ def guess_sector(name: str | None, bld_nm: str | None = None) -> str:
 
 
 LARGE_M2 = 10000
+_BAD_NAME = re.compile(r"^주\d*$|^Future$|게임|물류$|^[A-Za-z]{1,2}$")  # 회사명으로 볼 수 없는 것 / 물류회사
 _BAD_GUESS = {"친구", "사무실", "관리사무소"}  # 카카오 지번 조회에서 회사명이 아닌 것이 잡힌 경우
 _KAKAO_OK = ("제조", "공장", "기업", "제약", "산업용품")
 _KAKAO_NO = ("교통,수송", "산업단지", "보관,저장", "편의점", "음식점", "금융", "교육", "부동산", "전자제품판매", "단체,협회", "충전소", "구내식당")
@@ -466,7 +472,7 @@ def link_signals(c, log_activity: bool = True) -> dict:
         via_kakao = False
         if not name and p["company_guess"] and p["company_guess"] not in _BAD_GUESS:
             name, via_kakao = p["company_guess"], True
-        if not name:
+        if not name or _BAD_NAME.search(name):
             continue
         label = p["bld_nm"] if (p["bld_nm"] and not via_kakao) else f"{name} ({p['bld_nm'] or '건물명 미기재'})"
         norm = normalize_company(name, aliases)
