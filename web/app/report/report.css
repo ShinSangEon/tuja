@@ -92,3 +92,6 @@
   .rpt-page::after { content: "GENEQ 투자 레이더 · 대외비"; position: fixed; bottom: 0; right: 0; font-size: 9px; color: var(--ink-3); }
 }
 @media (max-width: 800px) { .kpis { grid-template-columns: repeat(2, 1fr); } .top3-list { grid-template-columns: 1fr; } .rpt-three { grid-template-columns: 1fr; } }
+
+.rpt-note { margin: 14px 0 0; padding: 12px 14px; border: 1px solid var(--line, #E3E1DA); border-left: 3px solid var(--ink, #1B2422); border-radius: 6px; font-size: 13px; line-height: 1.65; color: var(--ink-2, #4A5351); }
+.rpt-note b { color: var(--ink, #1B2422); }

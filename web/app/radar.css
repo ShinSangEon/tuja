@@ -138,6 +138,16 @@
   .radar .side { border-left: 0; border-top: 1px solid var(--line); }
   .radar .top { flex-direction: column; gap: 4px; align-items: flex-start; }
 }
+@media (max-width: 640px) {
+  .radar .top { padding: 10px 14px 8px; gap: 2px; }
+  .radar .brand-sub { display: none; }
+  .radar .brief { font-size: 13px; line-height: 1.9; }
+  .radar .brief b { font-size: 16px; }
+  .radar .brief .report-btn { margin-left: 8px; }
+  .radar .brief-meta { display: block; margin: 0; white-space: nowrap; line-height: 1.5; }
+  .radar .body { grid-template-rows: auto 44vh 1fr; }
+  .radar .rail { max-height: 168px; }
+}
 @media (prefers-reduced-motion: no-preference) {
   .radar .row, .radar .sido-row, .radar .seg button { transition: background 120ms; }
 }

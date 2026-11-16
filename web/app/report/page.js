@@ -74,6 +74,9 @@ export default async function Report({ searchParams }) {
   const hitBySignal = {};
   for (const m of matchedPermits) if (!hitBySignal[m.signal_id] || m.real_stcns_day) hitBySignal[m.signal_id] = m;
   const hot = all.filter((s) => priority(s.relevance_score) === "hot");
+  const isPermitOnly = (s) => (s.summary ?? "").startsWith("건축허가 원장에서 포착");
+  const freshNews = fresh.filter((s) => !isPermitOnly(s));
+  const freshPermit = fresh.filter(isPermitOnly);
   const early = hot.filter((s) => ["disclosure", "mou", "permit", "construction"].includes(s.stage));
   const cust = all.filter((s) => s.customer_name);
   const totalAmt = all.reduce((a, s) => a + (s.amount_krw ?? 0), 0);
@@ -252,7 +255,7 @@ export default async function Report({ searchParams }) {
         <h2>새로 포착된 건 <small>최근 {days}일</small></h2>
         {fresh.length === 0 ? <p className="muted">없음</p> : (
           <ul className="rpt-list">
-            {fresh.map((s) => (
+            {freshNews.slice(0, 30).map((s) => (
               <li key={s.id}>
                 <span className={`pri ${priority(s.relevance_score)}`}>{s.relevance_score}</span>
                 <div>
@@ -262,6 +265,13 @@ export default async function Report({ searchParams }) {
               </li>
             ))}
           </ul>
+        )}
+        {freshNews.length > 30 && <p className="muted small">뉴스·공시 기반 {freshNews.length}건 중 관련도 상위 30건만 표시했습니다. 나머지는 맨 아래 전체 목록에 있습니다.</p>}
+        {freshPermit.length > 0 && (
+          <p className="rpt-note">
+            <b>건축허가 원장에서 새로 확인된 공사 {freshPermit.length}건</b> — 뉴스에 나오지 않았지만 허가·착공 기록으로 잡은 연면적 1만㎡ 이상 공사입니다.
+            {" "}{freshPermit.slice(0, 8).map((s) => `${s.company_name}(${s.sigungu ?? sidoName(s.sido)})`).join(", ")}{freshPermit.length > 8 ? ` 외 ${freshPermit.length - 8}건` : ""}. 전체는 맨 아래 목록과 대시보드 지도에서 볼 수 있습니다.
+          </p>
         )}
       </section>
 

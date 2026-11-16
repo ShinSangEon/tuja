@@ -110,7 +110,8 @@ def is_same_project(x: dict, y: dict) -> bool:
         return False  # 한쪽이 미상이면 같은 건으로 볼 수 있음 (R4)
     if x.get("sigungu") and y.get("sigungu") and x["sigungu"] != y["sigungu"]:
         return False
-    if not _same_type(x["event_type"], y["event_type"]):
+    ax, ay = x.get("amount_krw"), y.get("amount_krw")
+    if not _same_type(x["event_type"], y["event_type"]) and not (ax and ax == ay):  # 금액이 똑같으면 유형 표기만 다른 같은 건
         return False
     dx, dy = x.get("published_at"), y.get("published_at")
     # 건축허가 원장은 '허가일' 기준이라 뉴스보다 한참 앞설 수 있다 — 같은 시군구의 같은 회사면 기간 제한 없이 같은 공사로 본다
@@ -134,7 +135,7 @@ def candidate_from_extraction(payload: dict, doc: dict, aliases: dict[str, str] 
     pub = doc.get("published_at")
     if isinstance(pub, str):
         pub = datetime.fromisoformat(pub)
-    return {
+    cand = {
         "company_name": name_raw,
         "company_norm": normalize_company(c.get("name_norm") or name_raw, aliases),
         "corp_code": c.get("corp_code") or doc.get("meta", {}).get("corp_code"),
@@ -164,6 +165,12 @@ def candidate_from_extraction(payload: dict, doc: dict, aliases: dict[str, str] 
         "published_at": pub,
         "_sources": [{"tier": doc.get("source_tier", 3), "source_name": doc.get("source_name"), "document_id": doc.get("id"), "url": doc.get("url")}],
     }
+    if cand["sector"] in (None, "", "기타"):  # 업종 미상 → 회사명으로 한 번 더 추정 (규칙을 보강하면 예전 건에도 반영되도록 여기서)
+        from permits import guess_sector  # noqa: PLC0415
+        cand["sector"] = guess_sector(cand["company_name"], None)
+    if cand.get("summary"):  # 예전 허가 요약의 '착공 20260213' → '착공 2026.02.13'
+        cand["summary"] = re.sub(r"(착공|허가) (\d{4})(\d{2})(\d{2})(?!\d)", r"\1 \2.\3.\4", cand["summary"])
+    return cand
 
 
 # ── R5 병합 ─────────────────────────────────────────────
