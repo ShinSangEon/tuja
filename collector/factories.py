@@ -81,19 +81,32 @@ def load_csv(c, path: str) -> int:
     return n
 
 
+_FC_CACHE: dict = {}   # 회사별 등록공장 조회 결과 (한 번 실행하는 동안만) — 원격 DB 왕복 줄이기
+_CN_CACHE: dict = {}
+
+
+def corp_name_of(c, corp_code: str | None) -> str | None:
+    if not corp_code:
+        return None
+    if not _CN_CACHE:
+        for r in c.execute("select corp_code, corp_name from corp_codes").fetchall():
+            _CN_CACHE[r["corp_code"]] = r["corp_name"]
+    return _CN_CACHE.get(corp_code)
+
+
 def for_company(c, company_norm: str, corp_name: str | None = None) -> list[dict]:
     norms = {company_norm}
     if corp_name:
         norms.add(normalize_company(corp_name))
-    return c.execute("select * from factories where company_norm = any(%s) order by id", (list(norms),)).fetchall()
+    key = frozenset(norms)
+    if key not in _FC_CACHE:
+        _FC_CACHE[key] = c.execute("select * from factories where company_norm = any(%s) order by id", (list(norms),)).fetchall()
+    return _FC_CACHE[key]
 
 
 def match_for_signal(c, sig: dict) -> dict | None:
     """신호와 같은 회사 공장 중 같은 산단 > 같은 시군구 > 같은 시도 순으로 하나. corp_code 가 있으면 DART 정식 상호로도 찾는다."""
-    corp_name = None
-    if sig.get("corp_code"):
-        r = c.execute("select corp_name from corp_codes where corp_code = %s", (sig["corp_code"],)).fetchone()
-        corp_name = r["corp_name"] if r else None
+    corp_name = corp_name_of(c, sig.get("corp_code"))
     rows = for_company(c, sig["company_norm"], corp_name)
     if not rows:
         return None

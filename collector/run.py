@@ -201,10 +201,7 @@ def geocode_target_factories(c, cache: dict) -> int:
     n = 0
     try:
         for sig in c.execute("select company_norm, corp_code from signals where not archived").fetchall():
-            corp_name = None
-            if sig["corp_code"]:
-                r = c.execute("select corp_name from corp_codes where corp_code = %s", (sig["corp_code"],)).fetchone()
-                corp_name = r["corp_name"] if r else None
+            corp_name = factories.corp_name_of(c, sig["corp_code"])
             rows = [r for r in factories.for_company(c, sig["company_norm"], corp_name) if not r.get("lat") and r.get("geocode_status") != "fail2"][:12]
             factories.ensure_geocoded(c, rows, geocode.geocode_address, cache)
             n += len(rows)
@@ -233,11 +230,10 @@ def cmd_rebuild(a):
         except Exception as e:  # noqa: BLE001
             log.warning("permits link (pre) failed: %s", e)
         db.wipe_signals(c)
+        code_by_norm = {r["name_norm"]: r["corp_code"] for r in c.execute("select name_norm, corp_code from corp_codes where name_norm is not null").fetchall()}
         for s in merged:
-            if not s.get("corp_code"):
-                r = c.execute("select corp_code from corp_codes where name_norm = %s", (s["company_norm"],)).fetchone()
-                if r:
-                    s["corp_code"] = r["corp_code"]
+            if not s.get("corp_code") and code_by_norm.get(s["company_norm"]):
+                s["corp_code"] = code_by_norm[s["company_norm"]]
             s["customer_name"] = cust.match(s.get("company_norm"), s.get("company_group"))
             db.upsert_signal(c, geocode_with_factories(c, s, complexes, regions, cache))
         log.info("factory pins geocoded: %d", geocode_target_factories(c, cache))

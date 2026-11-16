@@ -194,22 +194,32 @@ def snapshot_manual(c) -> list[dict]:
 def restore_manual(c, snap: list[dict]) -> int:
     """회사(정규화)+시도 가 같은 새 신호에 되돌려 넣는다. 못 찾으면 회사만 같은 신호(유일할 때)."""
     n = 0
+    by_key: dict = {}; by_norm: dict = {}
+    for r in c.execute("select id, company_norm, coalesce(sido,'') as sido from signals").fetchall():
+        by_key.setdefault((r["company_norm"], r["sido"]), []).append(r["id"])
+        by_norm.setdefault(r["company_norm"], []).append(r["id"])
+    seen_only: list = []; acts: list = []
     for s in snap:
-        rows = c.execute("select id from signals where company_norm = %s and coalesce(sido,'') = coalesce(%s,'')", (s["company_norm"], s["sido"])).fetchall()
-        if len(rows) != 1:
-            rows = c.execute("select id from signals where company_norm = %s", (s["company_norm"],)).fetchall()
-        if len(rows) != 1:
+        ids = by_key.get((s["company_norm"], s["sido"] or ""), [])
+        if len(ids) != 1:
+            ids = by_norm.get(s["company_norm"], [])
+        if len(ids) != 1:
             continue
-        sid = rows[0]["id"]
+        sid = ids[0]
         sets = {k: s.get(k) for k in MANUAL_COLS if s.get(k) not in (None, "none")}
-        if s.get("first_seen_at"):
-            sets["first_seen_at"] = s["first_seen_at"]
         if sets:
+            if s.get("first_seen_at"):
+                sets["first_seen_at"] = s["first_seen_at"]
             c.execute(f"update signals set {', '.join(f'{k} = %({k})s' for k in sets)} where id = %(id)s", {**sets, "id": sid})
-        for a in s["activities"]:
-            c.execute("insert into signal_activities (signal_id, actor, kind, content, created_at) values (%s,%s,%s,%s,%s)",
-                      (sid, a["actor"], a["kind"], a["content"], a["created_at"]))
+        elif s.get("first_seen_at"):
+            seen_only.append((s["first_seen_at"], sid))
+        acts += [(sid, a["actor"], a["kind"], a["content"], a["created_at"]) for a in s["activities"]]
         n += 1
+    cur = c.cursor()
+    if seen_only:
+        cur.executemany("update signals set first_seen_at = %s where id = %s", seen_only)
+    if acts:
+        cur.executemany("insert into signal_activities (signal_id, actor, kind, content, created_at) values (%s,%s,%s,%s,%s)", acts)
     return n
 
 
@@ -242,9 +252,9 @@ def upsert_signal(c, sig: dict) -> str:
         cols = ", ".join(SIGNAL_COLS)
         ph = ", ".join(f"%({k})s" for k in SIGNAL_COLS)
         sid = str(c.execute(f"insert into signals ({cols}) values ({ph}) returning id", vals).fetchone()["id"])
-    for s in sig.get("_sources", []):
-        if s.get("document_id"):
-            c.execute("insert into signal_sources (signal_id, document_id) values (%s,%s) on conflict do nothing", (sid, s["document_id"]))
+    srcs = [(sid, s["document_id"]) for s in sig.get("_sources", []) if s.get("document_id")]
+    if srcs:  # 한 번에 묶어 보내기
+        c.cursor().executemany("insert into signal_sources (signal_id, document_id) values (%s,%s) on conflict do nothing", srcs)
     return sid
 
 
