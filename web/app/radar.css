@@ -279,7 +279,7 @@
 .pm-pin:hover, .fac-pin:hover, .pm-pin.on, .fac-pin.on { background: #16211F; color: #fff; }
 .pm-pin.on::after, .fac-pin.on::after, .pm-pin:hover::after, .fac-pin:hover::after { background: #16211F; }
 .fac-pin { padding: 3px 8px; background: #fff; border-style: dashed; }
-.map-card { position: relative; width: 300px; padding: 12px 14px 10px; background: #fff; border: 1.5px solid #16211F; border-radius: 8px; box-shadow: 0 10px 28px -10px rgba(22,33,31,.45); font-family: Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: #16211F; text-align: left; }
+.map-card { position: relative; width: 300px; white-space: normal; word-break: keep-all; padding: 12px 14px 10px; background: #fff; border: 1.5px solid #16211F; border-radius: 8px; box-shadow: 0 10px 28px -10px rgba(22,33,31,.45); font-family: Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: #16211F; text-align: left; }
 .map-card::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 14px; height: 14px; background: #fff; border-right: 1.5px solid #16211F; border-bottom: 1.5px solid #16211F; transform: translateX(-50%) rotate(45deg); }
 .map-card-x { position: absolute; top: 6px; right: 8px; border: none; background: none; font-size: 18px; line-height: 1; color: #8E969B; cursor: pointer; }
 .map-card-x:hover { color: #16211F; }
