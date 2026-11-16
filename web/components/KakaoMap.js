@@ -70,6 +70,12 @@ export default function KakaoMap({ signals, selectedId, onSelect, focus, factori
     if (map.getLevel() > 6) map.setLevel(6, { anchor: ll }); // 묶음(클러스터)이 풀리는 단계까지 확대 — 선택한 핀이 숫자 원에 가려지지 않게
     map.panTo(ll);
   }, [map, fLat, fLng]);
+  // 지도 위 카드(건축허가·기존 공장)를 열면 그 지점을 가운데로 — 카드가 지도 위쪽 가장자리에 잘리지 않게
+  const aLat = active?.item?.lat ?? null, aLng = active?.item?.lng ?? null;
+  useEffect(() => {
+    if (!map || aLat == null || aLng == null || !window.kakao?.maps) return;
+    map.panTo(new window.kakao.maps.LatLng(Number(aLat), Number(aLng)));
+  }, [map, aLat, aLng]);
   const hotIds = useMemo(() => new Set(located.filter((s) => priority(s.relevance_score) === "hot").map((s) => s.id)), [located]);
 
   if (!appkey) {
