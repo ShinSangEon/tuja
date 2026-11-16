@@ -61,6 +61,7 @@ export default function KakaoMap({ signals, selectedId, onSelect, focus, factori
   const located = useMemo(() => signals.filter((s) => s.lat != null && s.lng != null), [signals]);
   const [map, setMap] = useState(null);
   const [active, setActive] = useState(null); // 클릭한 건축허가/기존공장 카드
+  const [level, setLevel] = useState(12); // 지도 확대 단계 (숫자가 작을수록 확대) — 멀리서는 미확인 공사를 점으로만
   // 선택한 신호로 이동: center/level 을 prop 으로 동시에 바꾸면 SDK 가 확대만 하고 이동을 건너뛰는 경우가 있어 직접 제어한다.
   const fLat = focus?.lat ?? null, fLng = focus?.lng ?? null;
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function KakaoMap({ signals, selectedId, onSelect, focus, factori
   if (loading) return <div className="map-empty"><p>지도 불러오는 중</p></div>;
 
   return (
-    <Map center={KOREA_CENTER} level={12} onCreate={setMap} onClick={() => setActive(null)} style={{ width: "100%", height: "100%" }}>
+    <Map center={KOREA_CENTER} level={12} onCreate={setMap} onZoomChanged={(m) => setLevel(m.getLevel())} onClick={() => setActive(null)} style={{ width: "100%", height: "100%" }}>
       <MarkerClusterer
         averageCenter
         minLevel={7}
@@ -116,13 +117,17 @@ export default function KakaoMap({ signals, selectedId, onSelect, focus, factori
           </CustomOverlayMap>
         );
       })}
-      {unknownPermits.filter((p) => p.lat != null && !permits.some((q) => q.id === p.id)).map((p) => (
-        <CustomOverlayMap key={`u${p.id}`} position={{ lat: p.lat, lng: p.lng }} yAnchor={1} zIndex={active?.id === p.id ? 60 : 3}>
-          <button className={`pm-pin unk ${active?.id === p.id ? "on" : ""}`} onClick={(e) => { e.stopPropagation(); setActive({ kind: "permit", id: p.id, item: p }); }} title="회사 미확인 대형 공사 — 눌러서 내용 보기">
-            <span className="pm-pin-k">미확인</span>{p.arch_gb ?? "허가"} {fmtArea(p.tot_area)}
-          </button>
-        </CustomOverlayMap>
-      ))}
+      {unknownPermits.filter((p) => p.lat != null && !permits.some((q) => q.id === p.id)).map((p) => {
+        const far = level > 9 && active?.id !== p.id; // 전국·광역 보기에서는 작은 점, 확대하면 면적 라벨
+        return (
+          <CustomOverlayMap key={`u${p.id}`} position={{ lat: p.lat, lng: p.lng }} yAnchor={far ? 0.5 : 1} zIndex={active?.id === p.id ? 60 : far ? 0 : 3}>
+            <button className={`pm-pin unk ${far ? "dot" : ""} ${active?.id === p.id ? "on" : ""}`} onClick={(e) => { e.stopPropagation(); setActive({ kind: "permit", id: p.id, item: p }); }}
+              title={`회사 미확인 대형 공사 — ${p.arch_gb ?? "허가"} ${fmtArea(p.tot_area)} · 눌러서 내용 보기`} aria-label={`회사 미확인 대형 공사 ${p.arch_gb ?? "허가"} ${fmtArea(p.tot_area)}`}>
+              {far ? null : <><span className="pm-pin-k">미확인</span>{p.arch_gb ?? "허가"} {fmtArea(p.tot_area)}</>}
+            </button>
+          </CustomOverlayMap>
+        );
+      })}
       {factories.filter((f) => f.lat != null).map((f) => (
         <CustomOverlayMap key={`f${f.id}`} position={{ lat: f.lat, lng: f.lng }} yAnchor={1} zIndex={active?.id === f.id ? 60 : 1}>
           <button className={`fac-pin ${active?.id === f.id ? "on" : ""}`} onClick={(e) => { e.stopPropagation(); setActive({ kind: "factory", id: f.id, item: f }); }} title="이 회사의 기존 등록공장 — 눌러서 내용 보기">기존 공장</button>

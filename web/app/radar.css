@@ -315,7 +315,12 @@
 .pm-pin.unk:hover, .pm-pin.unk.on { background: #7A3FB0; color: #fff; }
 .pm-pin.unk:hover::after, .pm-pin.unk.on::after { background: #7A3FB0; }
 .pm-pin.unk:hover .pm-pin-k, .pm-pin.unk.on .pm-pin-k { background: #fff; color: #7A3FB0; }
+.pm-pin.unk.dot { width: 14px; height: 14px; padding: 0; border-radius: 50%; border: 2px solid #fff; background: #7A3FB0; box-shadow: 0 0 0 1.5px #7A3FB0; opacity: .85; }
+.pm-pin.unk.dot::after { display: none; }
+.pm-pin.unk.dot:hover { opacity: 1; transform: scale(1.25); }
 .map-card-tag.unk { background: #7A3FB0; color: #fff; }
 .map-card-note.unk { color: #4B2578; }
 .lg-chip.unk { border-style: dashed; border-color: #7A3FB0; color: #4B2578; }
 .lg-chip.unk i { background: #7A3FB0; }
+
+.lg-dot-unk { display: inline-block; width: 12px; height: 12px; margin: 0 9px 0 6px; border-radius: 50%; background: #7A3FB0; border: 2px solid #fff; box-shadow: 0 0 0 1.5px #7A3FB0; }
