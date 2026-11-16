@@ -33,6 +33,7 @@
 .rpt-list li { display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line-2); }
 .pri { flex: none; width: 34px; height: 34px; border-radius: 50%; color: #fff; font-weight: 800; display: grid; place-items: center; font-size: 13px; border: 2px solid var(--ink); }
 .pri.hot { background: var(--hot); } .pri.watch { background: var(--watch); } .pri.low { background: var(--ink-3); }
+.rpt-page .pri.hot, .rpt-page .pri.watch, .rpt-page .pri.low { color: #fff; }
 .rpt-summary { color: var(--ink-2); font-size: 12.5px; margin-top: 2px; }
 .rpt-foot { margin-top: 30px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 11.5px; }
 .rpt-foot p { margin: 4px 0; }
@@ -73,7 +74,7 @@
 .tag.a { border-color: var(--ink); color: var(--ink); background: #fff; }
 .tag.win { border-color: var(--watch); color: #9A6A08; background: #FBF3E0; }
 
-.rpt-table tr.is-cust td { box-shadow: inset 3px 0 0 #2457C5; }
+.rpt-table tr.is-cust td:first-child { box-shadow: inset 3px 0 0 #2457C5; }
 .rpt-table tr.is-cust td:first-child { padding-left: 10px; }
 .rpt-table tr.is-radar td:first-child { box-shadow: inset 3px 0 0 var(--ink-3); padding-left: 10px; }
 .radar-tag { display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 3px; background: var(--ink-3); color: #fff; font-size: 10px; font-weight: 700; vertical-align: 1px; }

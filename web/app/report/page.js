@@ -1,5 +1,5 @@
 import "./report.css";
-import { CONTACT_LABEL, EVENT_LABEL, STAGE_LABEL, fmtKrw, priority, sidoName, estimateUtility } from "@/lib/format";
+import { CONTACT_LABEL, EVENT_LABEL, STAGE_LABEL, fmtKrw, fmtPeriod, priority, sidoName, estimateUtility } from "@/lib/format";
 import { nearestSite, orderWindow } from "@/lib/geo";
 
 export const dynamic = "force-dynamic";
@@ -31,13 +31,13 @@ async function load(days) {
           and length(regexp_replace(s.company_name, '\\(주\\)|㈜|주식회사|\\s|\\(.*\\)', '', 'g')) >= 2
           and regexp_replace(p.bld_nm, '\\s', '', 'g') ilike '%' || regexp_replace(s.company_name, '\\(주\\)|㈜|주식회사|\\s|\\(.*\\)', '', 'g') || '%'`),
     q(`select a.signal_id, s.company_name, a.content, a.created_at from signal_activities a join signals s on s.id = a.signal_id
-        where a.kind = 'system' and a.created_at > now() - ($1 || ' days')::interval order by a.created_at desc limit 30`, [String(days)]),,
+        where a.kind = 'system' and a.created_at > now() - ($1 || ' days')::interval order by a.created_at desc limit 30`, [String(days)]),
     // 회사 미확인 대형 공사: 허가 원장에 회사명이 없고 지도 조회로도 못 찾은 1만㎡+ 미준공 건
     q(`select id, plat_plc, arch_gb, main_purps, tot_area::float as tot_area, pms_day, stcns_sched_day, real_stcns_day, guess_cands, lat, lng
          from permits where guess_src = 'none' and coalesce(use_apr_day,'') = '' and pms_day >= to_char(now() - interval '730 days', 'YYYYMMDD')
          order by tot_area desc limit 20`)
   ]);
-  return { all: all.map(num), fresh: fresh.map(num), docs: docs[0] ?? { n: 0, recent: 0 }, permits, inProgress, matchedPermits, systemChanges };
+  return { all: all.map(num), fresh: fresh.map(num), docs: docs[0] ?? { n: 0, recent: 0 }, permits, inProgress, matchedPermits, systemChanges, unknownPermits };
 }
 
 const fmtDate = (d) => { const x = new Date(d); return `${x.getFullYear()}.${String(x.getMonth() + 1).padStart(2, "0")}.${String(x.getDate()).padStart(2, "0")}`; };
@@ -70,7 +70,7 @@ export default async function Report({ searchParams }) {
   const today = new Date();
   if (!data) return <main className="rpt-page"><h1>보고서</h1><p>DB 연결이 없어 보고서를 만들 수 없습니다.</p></main>;
 
-  const { all, fresh, docs, permits, inProgress, matchedPermits, systemChanges } = data;
+  const { all, fresh, docs, permits, inProgress, matchedPermits, systemChanges, unknownPermits = [] } = data;
   const hitBySignal = {};
   for (const m of matchedPermits) if (!hitBySignal[m.signal_id] || m.real_stcns_day) hitBySignal[m.signal_id] = m;
   const hot = all.filter((s) => priority(s.relevance_score) === "hot");
@@ -136,7 +136,7 @@ export default async function Report({ searchParams }) {
                 </div>
                 <p className="top3-sum">{s.summary}</p>
                 <dl className="top3-kv">
-                  <dt>무엇을</dt><dd>{EVENT_LABEL[s.event_type]} · {STAGE_LABEL[s.stage]} · {fmtKrw(s.amount_krw)}{s.period_start || s.period_end ? ` · ${s.period_start ?? "?"}→${s.period_end ?? "?"}` : ""}</dd>
+                  <dt>무엇을</dt><dd>{EVENT_LABEL[s.event_type]} · {STAGE_LABEL[s.stage]} · {fmtKrw(s.amount_krw)}{fmtPeriod(s.period_start, s.period_end) ? ` · ${fmtPeriod(s.period_start, s.period_end)}` : ""}</dd>
                   <dt>우리 제안</dt><dd>{e.air} · {e.dryer}{e.note ? ` — ${e.note}` : ""}</dd>
                   {hit && <><dt>허가 원장</dt><dd>{hit.bld_nm} · {hit.arch_gb} {Math.round(hit.tot_area).toLocaleString()}㎡ · 허가 {fmtDay8(hit.pms_day)}{hit.real_stcns_day ? ` · 착공 ${fmtDay8(hit.real_stcns_day)}` : hit.stcns_sched_day ? ` · 착공예정 ${fmtDay8(hit.stcns_sched_day)}` : ""}</dd></>}
                   <dt>영업 상태</dt><dd>{s.contact_status && s.contact_status !== "none" ? `${CONTACT_LABEL[s.contact_status]}${s.owner ? ` · 담당 ${s.owner}` : ""}` : <span className="muted">아직 아무도 연락 안 함 — 담당 정하기</span>}</dd>
@@ -158,7 +158,7 @@ export default async function Report({ searchParams }) {
                   <td><b>{s.company_name}</b>{s.customer_name ? <span className="cust-tag">고객</span> : null}{s.company_group ? <small> {s.company_group}</small> : null}</td>
                   <td>{sidoName(s.sido)} {s.sigungu ?? ""}{n ? <><br /><small>{n.name} {n.km}km</small></> : null}</td>
                   <td>{EVENT_LABEL[s.event_type]}<br /><small>{s.sector ?? ""}{s.process_hint ? ` · ${s.process_hint}` : ""}</small></td>
-                  <td>{STAGE_LABEL[s.stage]}<br /><small>{s.period_start ?? "?"}→{s.period_end ?? "?"}</small></td>
+                  <td>{STAGE_LABEL[s.stage]}<br /><small>{fmtPeriod(s.period_start, s.period_end) || "기간 미정"}</small></td>
                   <td className="num">{fmtKrw(s.amount_krw)}</td>
                   <td><Tags list={r} /></td>
                   <td><small>{e.air}<br />{e.dryer}</small></td>

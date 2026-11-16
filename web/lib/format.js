@@ -123,3 +123,11 @@ export function estimateUtility(s) {
   const e = EST[cls];
   return { air: e[s.size_class] ?? e.U, dryer: e.dryer, note: e.note };
 }
+
+/** 투자 기간 표시 — 모르는 쪽을 '?' 로 두지 않고 말로 풀어 쓴다. */
+export function fmtPeriod(a, b) {
+  if (a && b) return `${a} → ${b}`;
+  if (b) return `~${b} 완료 예정`;
+  if (a) return `${a} 시작`;
+  return "";
+}

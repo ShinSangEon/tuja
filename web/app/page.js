@@ -57,7 +57,7 @@ export default function Page() {
           <span className="brand-name">GENEQ 투자 레이더</span>
           <span className="brand-sub">국내 공장 신설·증설·개조 신호 → ES사업부 영업 타겟</span>
         </div>
-        <p className="brief">
+        <div className="brief">
           조건에 맞는 <b>{data?.count ?? 0}</b>건 중 즉시 검토 <b className="hot">{hot}</b>건,
           투자 합계 <b>{bigSum ? `${Math.round(bigSum / 1e8).toLocaleString()}억` : "–"}</b>
           <a className="report-btn" href="/report">
@@ -69,7 +69,7 @@ export default function Page() {
             {data?.source === "sample" ? "샘플 데이터" : data?.updated_at ? `마지막 업데이트 ${fmtDate(data.updated_at)}` : ""}
             {loading ? " · 불러오는 중" : ""}
           </span>
-        </p>
+        </div>
       </header>
 
       <div className="body">

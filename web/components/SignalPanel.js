@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import CompanyCard from "@/components/CompanyCard";
-import { estimateUtility, CONTACT_LABEL, CONTACT_STATUS, KIND_LABEL, EVENT_LABEL, GRADE_LABEL, SIZE_LABEL, STAGE_LABEL, STAGE_ORDER, fmtDate, fmtKrw, grade, priority, PRIORITY_LABEL, scoreColor, sidoName, stageIndex } from "@/lib/format";
+import { estimateUtility, CONTACT_LABEL, CONTACT_STATUS, KIND_LABEL, EVENT_LABEL, GRADE_LABEL, SIZE_LABEL, STAGE_LABEL, STAGE_ORDER, fmtDate, fmtKrw, fmtPeriod, grade, priority, PRIORITY_LABEL, scoreColor, sidoName, stageIndex } from "@/lib/format";
 
 /** 5단계 진행바 — 공시→협약→인허가→착공→준공 (진짜 순서라서 진행바) */
 export function StageBar({ stage, compact = false }) {
@@ -303,7 +303,7 @@ export function SignalDetail({ s, onClose, onBack, onFactories, onPermits, onSal
 
       <dl className="kv">
         <dt>투자금액</dt><dd className="amt-lg">{fmtKrw(s.amount_krw)}{s.amount_krw && !s.amount_disclosed ? <small> 추정</small> : null}</dd>
-        <dt>기간</dt><dd>{s.period_start ?? "?"} → {s.period_end ?? "?"}</dd>
+        <dt>기간</dt><dd>{fmtPeriod(s.period_start, s.period_end) || "미정"}</dd>
         <dt>업종·공정</dt><dd>{s.sector ?? "-"}{s.process_hint ? <><br /><small>{s.process_hint}</small></> : null}</dd>
         {s.address_raw && (<><dt>주소</dt><dd>{s.address_raw}</dd></>)}
       </dl>

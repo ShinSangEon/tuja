@@ -120,14 +120,17 @@ def fetch_bjdong(sigungu_cd: str, bjdong_cd: str, since: date, max_pages: int = 
 
 
 def upsert(c, rows: list[dict]) -> int:
-    n = 0
-    for r in rows:
-        cols = list(r.keys())
-        sets = ", ".join(f"{k} = excluded.{k}" for k in cols if k != "id")
-        c.execute(f"insert into permits ({', '.join(cols)}) values ({', '.join(['%s'] * len(cols))}) "
-                  f"on conflict (id) do update set {sets}, fetched_at = now()", [r[k] for k in cols])
-        n += 1
-    return n
+    """한 번에 묶어 보내기(executemany) — 건별 왕복이면 수천 건에서 수 분이 걸린다."""
+    if not rows:
+        return 0
+    cols = sorted({k for r in rows for k in r})
+    sets = ", ".join(f"{k} = excluded.{k}" for k in cols if k != "id")
+    sql = (f"insert into permits ({', '.join(cols)}) values ({', '.join(['%s'] * len(cols))}) "
+           f"on conflict (id) do update set {sets}, fetched_at = now()")
+    byid = {r["id"]: r for r in rows}  # 같은 id 중복 제거
+    cur = c.cursor()
+    cur.executemany(sql, [[r.get(k) for k in cols] for r in byid.values()])
+    return len(byid)
 
 
 def export_codes(c, path: str) -> int:
@@ -165,6 +168,9 @@ def fetch_to_file(codes_path: str, out_path: str, days: int = 365, pause: float 
     return len(rows)
 
 
+GEOCODE_MIN_M2 = 3000
+
+
 def load_file(c, path: str) -> int:
     """3단계 (PC): 결과 파일을 DB 에 넣고 대지위치를 카카오로 지오코딩."""
     import json, geocode
@@ -172,7 +178,7 @@ def load_file(c, path: str) -> int:
     rows = json.load(open(path))
     cache: dict = {}
     for p in rows:
-        if p.get("plat_plc") and not p.get("lat"):
+        if p.get("plat_plc") and not p.get("lat") and float(p.get("tot_area") or 0) >= GEOCODE_MIN_M2:  # 소형은 지도에 안 쓰므로 생략
             try:
                 pt = geocode.geocode_address(p["plat_plc"], cache)
             except Exception:  # noqa: BLE001
@@ -383,6 +389,11 @@ def resolve_names(c) -> dict:
     return {"resolved": ok, "unknown": unk}
 
 
+def _ymd(d) -> str:
+    d = str(d or '')
+    return f"{d[:4]}.{d[4:6]}.{d[6:8]}" if len(d) >= 8 and d[:8].isdigit() else d
+
+
 def link_signals(c, log_activity: bool = True) -> dict:
     """1) 허가 건물명에 레이더 회사명이 보이면 단계를 인허가/착공으로 승격(기존 단계가 더 앞설 때만)
        2) 레이더에 없는 1만㎡ 이상 공장 허가는 raw_documents+extractions 로 등록 → rebuild/ingest 가 신호로 만든다."""
@@ -409,7 +420,7 @@ def link_signals(c, log_activity: bool = True) -> dict:
             c.execute("update signals set stage = %s where id = %s", (target, s["id"]))
             if log_activity:
                 labels = {"permit": "인허가", "construction": "착공", "completed": "준공"}
-                msg = f"건축허가 원장 확인({best['bld_nm'] or best['company_guess']}, {best['arch_gb'] or ''} {int(best['tot_area'] or 0):,}㎡, 허가 {best['pms_day']}) → 단계 {labels[target]}"
+                msg = f"건축허가 원장 확인({best['bld_nm'] or best['company_guess']}, {best['arch_gb'] or ''} {int(best['tot_area'] or 0):,}㎡, 허가 {_ymd(best['pms_day'])}) → 단계 {labels[target]}"
                 # rebuild 마다 단계가 원복→재승격되므로 같은 내용의 기록이 이미 있으면 다시 남기지 않음
                 if not c.execute("select 1 from signal_activities where signal_id = %s and kind = 'system' and content = %s", (s["id"], msg)).fetchone():
                     c.execute("insert into signal_activities (signal_id, actor, kind, content) values (%s,'시스템','system',%s)", (s["id"], msg))
@@ -455,7 +466,7 @@ def link_signals(c, log_activity: bool = True) -> dict:
         payload = {
             "doc_id": str(did), "is_relevant": True,
             "company": {"name_raw": name, "name_norm": norm, "group": None, "listed": None, "corp_code": None},
-            "event": {"type": etype, "stage": stage, "summary": f"건축허가 원장에서 포착: {label} {p['arch_gb']} 연면적 {int(float(p['tot_area'])):,}㎡ (허가 {p['pms_day'][:4]}.{p['pms_day'][4:6]}.{p['pms_day'][6:]}{', 착공 ' + p['real_stcns_day'] if p['real_stcns_day'] else ''}). 뉴스 미보도 — 현장·용도 확인 필요" + (" · 회사명은 허가 주소의 카카오 지도 업체로 추정" if via_kakao else ""), "purpose": None},
+            "event": {"type": etype, "stage": stage, "summary": f"건축허가 원장에서 포착: {label} {p['arch_gb']} 연면적 {int(float(p['tot_area'])):,}㎡ (허가 {p['pms_day'][:4]}.{p['pms_day'][4:6]}.{p['pms_day'][6:]}{', 착공 ' + _ymd(p['real_stcns_day']) if p['real_stcns_day'] else ''}). 뉴스 미보도 — 현장·용도 확인 필요" + (" · 회사명은 허가 주소의 카카오 지도 업체로 추정" if via_kakao else ""), "purpose": None},
             "investment": {"amount_krw": None, "amount_disclosed": False, "period_start": None, "period_end": None, "floor_area_m2": float(p["tot_area"])},
             "location": {"sido": sido, "sigungu": sigungu, "industrial_complex": None, "address_raw": p["plat_plc"], "precision": "address"},
             "industry": {"sector": guess_sector(name, f"{p['bld_nm'] or ''} {p['guess_cat'] or ''}"), "process_hint": p["main_purps"]},
