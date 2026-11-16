@@ -218,7 +218,19 @@ def merge(base: dict, new: dict) -> dict:
         out[k] = max(out.get(k) or 0, new.get(k) or 0)
     out["confidence"] = max(out.get("confidence") or 0, new.get("confidence") or 0)
     out["published_at"] = max(filter(None, [out.get("published_at"), new.get("published_at")]), default=None)
+    # 허가 원장만으로 만든 후보와 뉴스·공시 후보가 합쳐지면, 이름·요약·유형은 뉴스·공시 쪽을 쓴다
+    # (원장의 건물명에서 뽑은 '삼성반도체' 같은 표기나 '건축허가 원장에서 포착' 문구가 실제 기사 내용을 덮지 않게)
+    bp, np_ = _permit_only(base), _permit_only(new)
+    if bp != np_:
+        src = new if bp else base
+        for k in ("company_name", "summary", "purpose", "event_type"):
+            if src.get(k):
+                out[k] = src[k]
     return out
+
+
+def _permit_only(c: dict) -> bool:
+    return bool(c.get("_sources")) and all(str(u.get("url") or "").startswith("permit://") for u in c["_sources"])
 
 
 def finalize(sig: dict) -> dict:
