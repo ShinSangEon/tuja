@@ -19,6 +19,9 @@ def normalize_company(name: str | None, aliases: dict[str, str] | None = None) -
     if not name:
         return ""
     n = _STRIP.sub("", name).lower().strip()
+    for ko, en in (("엘지", "lg"), ("씨제이", "cj"), ("에스케이", "sk"), ("케이티", "kt")):  # 한글 표기 그룹명 → 영문 (허가 원장은 한글 표기)
+        if n.startswith(ko) and len(n) > len(ko) + 1:
+            n = en + n[len(ko):]
     if aliases and n in aliases:
         return aliases[n]
     return n
@@ -110,7 +113,9 @@ def is_same_project(x: dict, y: dict) -> bool:
     if not _same_type(x["event_type"], y["event_type"]):
         return False
     dx, dy = x.get("published_at"), y.get("published_at")
-    if dx and dy and abs((dx - dy).days) > DEDUPE_WINDOW_DAYS:
+    # 건축허가 원장은 '허가일' 기준이라 뉴스보다 한참 앞설 수 있다 — 같은 시군구의 같은 회사면 기간 제한 없이 같은 공사로 본다
+    permit_pair = any(str(u.get("url") or "").startswith("permit://") for u in x.get("_sources", []) + y.get("_sources", [])) and x.get("sigungu") and x.get("sigungu") == y.get("sigungu")
+    if dx and dy and abs((dx - dy).days) > DEDUPE_WINDOW_DAYS and not permit_pair:
         return False
     ax, ay = x.get("amount_krw"), y.get("amount_krw")
     if ax and ay and max(ax, ay) / max(min(ax, ay), 1) >= AMOUNT_SPLIT_RATIO:
