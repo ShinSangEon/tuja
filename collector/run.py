@@ -148,18 +148,20 @@ def cmd_ingest(a):
             docs = {str(d["id"]): d for d in db.pending_documents(c, limit=5000)}
             aliases = db.load_aliases(c)
             cust = customers.Matcher(c)
-            cands = []
+            cands, to_save = [], []
             for doc_id, r in by_id.items():
                 d = docs.get(doc_id)
                 if not d:
                     log.warning("doc %s not pending in DB (이미 처리됐거나 id 오타)", doc_id)
                     continue
                 d["id"] = doc_id
-                db.save_extraction(c, doc_id, r)
+                to_save.append({**r, "doc_id": doc_id})
                 if r.get("is_relevant"):
                     cand = validate.candidate_from_extraction(r, d, aliases)
                     if cand:
                         cands.append(cand)
+            db.save_extraction_batch(c, to_save)
+            c.commit()  # 판독 결과는 먼저 확정 (이후 단계가 시간 제한에 걸려도 rebuild 로 복구 가능)
             existing = db.load_existing_signals(c)
             merged = validate.consolidate(cands, existing)
             complexes, regions, cache = db.load_complexes(c), db.load_regions(c), db.load_geocode_cache(c)
@@ -174,7 +176,9 @@ def cmd_ingest(a):
                 db.upsert_signal(c, s)
                 n_new += 0 if s.get("_id") else 1
                 n_upd += 1 if s.get("_id") else 0
-            log.info("factory pins geocoded: %d", geocode_target_factories(c, cache))
+            import time  # noqa: PLC0415
+            db.save_geocode_cache(c, cache, known); known |= set(cache)
+            log.info("factory pins geocoded: %d", geocode_target_factories(c, cache, time.time() + float(os.getenv("INGEST_FACTORY_SEC", "8"))))
             db.save_geocode_cache(c, cache, known)
             log.info("ingest: %d results → %d candidates → %d new, %d updated | stale %d, archived %d",
                      len(results), len(cands), n_new, n_upd, db.mark_stale(c), db.archive_completed(c))
@@ -248,6 +252,14 @@ def cmd_rebuild(a):
         complexes, regions, cache = db.load_complexes(c), db.load_regions(c), db.load_geocode_cache(c)
         known = set(cache)
         code_by_norm = {r["name_norm"]: r["corp_code"] for r in c.execute("select name_norm, corp_code from corp_codes where name_norm is not null").fetchall()}
+        norms = {s["company_norm"] for s in merged}
+        for s in merged:
+            if not s.get("corp_code") and code_by_norm.get(s["company_norm"]):
+                s["corp_code"] = code_by_norm[s["company_norm"]]
+            cn = factories.corp_name_of(c, s.get("corp_code"))
+            if cn:
+                norms.add(validate.normalize_company(cn))
+        log.info("factories prefetched: %d", factories.prefetch(c, norms))
         ready = []
         for i, s in enumerate(merged):  # ① 좌표 계산 — 아직 아무것도 지우지 않았으므로 중간 저장해도 안전
             if not s.get("corp_code") and code_by_norm.get(s["company_norm"]):
@@ -259,9 +271,8 @@ def cmd_rebuild(a):
         db.save_geocode_cache(c, cache, known); known |= set(cache); c.commit()
         log.info("geocode done: %d signals (%.0fs left)", len(ready), deadline - time.time())
         snap = db.snapshot_manual(c)
-        db.wipe_signals(c)  # ② 지우고 다시 넣기 — 한 트랜잭션
-        for s in ready:
-            db.upsert_signal(c, s)
+        db.wipe_signals(c)  # ② 지우고 다시 넣기 — 한 트랜잭션, 일괄 전송
+        db.insert_signals_bulk(c, ready)
         log.info("manual fields/activities restored: %d/%d", db.restore_manual(c, snap), len(snap))
         try:
             permits.link_signals(c)  # 허가 원장으로 단계 승격

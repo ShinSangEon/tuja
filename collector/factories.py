@@ -94,13 +94,29 @@ def corp_name_of(c, corp_code: str | None) -> str | None:
     return _CN_CACHE.get(corp_code)
 
 
+_FAC_BY_NORM: dict | None = None  # prefetch 로 채우면 회사별 조회 없이 메모리에서 찾는다
+
+
+def prefetch(c, norms) -> int:
+    """rebuild 시작 때 신호 회사들의 등록공장을 한 번에 읽어 둔다 (회사마다 원격 DB 왕복 → 1회)."""
+    global _FAC_BY_NORM
+    norms = sorted({n for n in norms if n})
+    _FAC_BY_NORM = {}
+    for r in c.execute("select * from factories where company_norm = any(%s) order by id", (norms,)).fetchall():
+        _FAC_BY_NORM.setdefault(r["company_norm"], []).append(r)
+    return sum(len(v) for v in _FAC_BY_NORM.values())
+
+
 def for_company(c, company_norm: str, corp_name: str | None = None) -> list[dict]:
     norms = {company_norm}
     if corp_name:
         norms.add(normalize_company(corp_name))
     key = frozenset(norms)
     if key not in _FC_CACHE:
-        _FC_CACHE[key] = c.execute("select * from factories where company_norm = any(%s) order by id", (list(norms),)).fetchall()
+        if _FAC_BY_NORM is not None:  # prefetch 된 범위(신호 회사명 + 법인명)는 메모리에서
+            _FC_CACHE[key] = sorted((r for n in norms for r in _FAC_BY_NORM.get(n, [])), key=lambda r: r["id"])
+        else:
+            _FC_CACHE[key] = c.execute("select * from factories where company_norm = any(%s) order by id", (list(norms),)).fetchall()
     return _FC_CACHE[key]
 
 

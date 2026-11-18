@@ -110,11 +110,35 @@ def save_extraction(c, document_id: str, result: dict, error: str | None = None)
 
 
 def save_extraction_batch(c, results: list[dict]) -> int:
-    n = 0
+    """판독 결과를 한 번에 저장 (건별 왕복이면 원격 DB 에서 수 분 걸림)."""
+    rows, done, passed = [], [], []
     for r in results:
-        save_extraction(c, r["doc_id"], r)
-        n += 1
-    return n
+        skipped = bool(r.get("skipped"))
+        payload = None if skipped else r
+        rows.append((r["doc_id"], r.get("_model", "claude-session"), None if skipped else r.get("is_relevant"), r.get("irrelevant_reason"),
+                     Jsonb(payload) if payload else None, r.get("confidence")))
+        done.append(r["doc_id"])
+    if rows:
+        c.cursor().executemany("""insert into extractions (document_id, model, is_relevant, irrelevant_reason, payload, confidence)
+                                  values (%s,%s,%s,%s,%s,%s)""", rows)
+        c.execute("update raw_documents set extracted = true, prefilter_pass = true where id = any(%s::uuid[])", (done,))
+    return len(rows)
+
+
+def insert_signals_bulk(c, sigs: list[dict]) -> list[str]:
+    """rebuild 용: 신호를 한 번에 넣는다. id 를 미리 만들어 출처 연결까지 일괄."""
+    import uuid  # noqa: PLC0415
+    cols = ["id"] + SIGNAL_COLS
+    rows, srcs, ids = [], [], []
+    for sig in sigs:
+        sid = str(uuid.uuid4()); ids.append(sid)
+        rows.append([sid] + [sig.get(k) for k in SIGNAL_COLS])
+        srcs += [(sid, x["document_id"]) for x in sig.get("_sources", []) if x.get("document_id")]
+    if rows:
+        c.cursor().executemany(f"insert into signals ({', '.join(cols)}) values ({', '.join(['%s'] * len(cols))})", rows)
+    if srcs:
+        c.cursor().executemany("insert into signal_sources (signal_id, document_id) values (%s,%s) on conflict do nothing", list(dict.fromkeys(srcs)))
+    return ids
 
 
 def load_aliases(c) -> dict[str, str]:
