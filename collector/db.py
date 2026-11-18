@@ -216,13 +216,16 @@ def snapshot_manual(c) -> list[dict]:
 def restore_manual(c, snap: list[dict]) -> int:
     """회사(정규화)+시도 가 같은 새 신호에 되돌려 넣는다. 못 찾으면 회사만 같은 신호(유일할 때)."""
     n = 0
-    by_key: dict = {}; by_norm: dict = {}
-    for r in c.execute("select id, company_norm, coalesce(sido,'') as sido from signals").fetchall():
+    by_key: dict = {}; by_norm: dict = {}; by_full: dict = {}
+    for r in c.execute("select id, company_norm, coalesce(sido,'') as sido, coalesce(sigungu,'') as sigungu, event_type from signals").fetchall():
+        by_full.setdefault((r["company_norm"], r["sido"], r["sigungu"], r["event_type"]), []).append(r["id"])
         by_key.setdefault((r["company_norm"], r["sido"]), []).append(r["id"])
         by_norm.setdefault(r["company_norm"], []).append(r["id"])
     seen_only: list = []; acts: list = []
     for s in snap:
-        ids = by_key.get((s["company_norm"], s["sido"] or ""), [])
+        ids = by_full.get((s["company_norm"], s["sido"] or "", s.get("sigungu") or "", s.get("event_type")), [])
+        if len(ids) != 1:
+            ids = by_key.get((s["company_norm"], s["sido"] or ""), [])
         if len(ids) != 1:
             ids = by_norm.get(s["company_norm"], [])
         if len(ids) != 1:
