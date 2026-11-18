@@ -84,7 +84,8 @@ def cmd_collect(a):
             extract.set_watchlist(_customer_names(c))
             new = db.upsert_documents(c, docs)
             log.info("new documents in DB: %d", new)
-            for d in db.pending_documents(c):
+            skipped = []
+            for d in db.pending_documents(c, limit=a.limit):
                 d["id"] = str(d["id"])
                 rc = (d.get("meta") or {}).get("rcept_no")
                 if d.get("source_type") == "dart" and rc and len(d.get("body") or "") < 300 and os.getenv("ALLOW_GOV_API") == "1":
@@ -97,7 +98,10 @@ def cmd_collect(a):
                 if ok:
                     pending.append(d)
                 else:
-                    db.save_extraction(c, d["id"], {"skipped": "prefilter"})
+                    skipped.append(d["id"])
+            if skipped:  # 사전필터 탈락은 한 번에 기록 (건별 왕복이면 원격 DB 에서 수 분 걸림)
+                c.cursor().executemany("insert into extractions (document_id, model, is_relevant) values (%s, 'prefilter', null)", [(i,) for i in skipped])
+                c.execute("update raw_documents set extracted = true, prefilter_pass = false where id = any(%s::uuid[])", (skipped,))
     else:
         wl = os.getenv("WATCHLIST_FILE")
         if wl and Path(wl).exists():
@@ -496,7 +500,8 @@ def main():
     p = sub.add_parser("collect")
     p.add_argument("--dump", help="(외부 실행) DB 에 넣지 않고 수집 문서를 이 파일로 저장")
     p.add_argument("--load", help="(PC) --dump 로 받은 파일을 읽어 DB 적재·사전필터"); p.add_argument("--since", default=(date.today() - timedelta(days=3)).isoformat())
-    p.add_argument("--sources", default="dart,press"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_collect)
+    p.add_argument("--sources", default="dart,press"); p.add_argument("--no-db", action="store_true")
+    p.add_argument("--limit", type=int, default=3000, help="이번에 사전필터할 미처리 문서 수"); p.set_defaults(fn=cmd_collect)
     p = sub.add_parser("ingest"); p.add_argument("file"); p.add_argument("--no-db", action="store_true"); p.set_defaults(fn=cmd_ingest)
     p = sub.add_parser("rebuild"); p.set_defaults(fn=cmd_rebuild)
     p = sub.add_parser("permits"); p.add_argument("--days", type=int, default=120); p.set_defaults(fn=cmd_permits)
