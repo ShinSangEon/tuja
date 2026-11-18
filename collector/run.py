@@ -146,6 +146,10 @@ def cmd_ingest(a):
     if DATABASE_URL and not a.no_db:
         with db.conn() as c:
             docs = {str(d["id"]): d for d in db.pending_documents(c, limit=5000)}
+            more = [i for i in by_id if i not in docs]
+            if more:  # rescan-demand 처럼 이미 처리된 문서를 다시 판독한 경우
+                for d in c.execute("select * from raw_documents where id = any(%s::uuid[])", (more,)).fetchall():
+                    docs[str(d["id"])] = d
             aliases = db.load_aliases(c)
             cust = customers.Matcher(c)
             cands, to_save = [], []
