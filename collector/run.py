@@ -81,6 +81,7 @@ def cmd_collect(a):
     pending = []
     if DATABASE_URL and not a.no_db:
         with db.conn() as c:
+            extract.set_watchlist(_customer_names(c))
             new = db.upsert_documents(c, docs)
             log.info("new documents in DB: %d", new)
             for d in db.pending_documents(c):
@@ -98,6 +99,9 @@ def cmd_collect(a):
                 else:
                     db.save_extraction(c, d["id"], {"skipped": "prefilter"})
     else:
+        wl = os.getenv("WATCHLIST_FILE")
+        if wl and Path(wl).exists():
+            extract.set_watchlist(json.loads(Path(wl).read_text(encoding="utf-8")))
         seen = set()
         for i, d in enumerate(docs):
             if d["url"] in seen:
@@ -421,6 +425,71 @@ def cmd_alias(a):
         log.info("alias %s → %s (rebuild 필요)", src, dst)
 
 
+def _customer_names(c) -> list[str]:
+    names = []
+    for r in c.execute("select name, aliases from customers").fetchall():
+        names.append(r["name"])
+        al = r.get("aliases") or []
+        names += [a for a in (al if isinstance(al, list) else []) if a]
+    return sorted({n for n in names if n})
+
+
+def cmd_watchlist(a):
+    """(PC) 기존 거래처 이름 → JSON. 외부 서버의 뉴스 수집이 거래처별 소식을 받을 때 쓴다 (저장소에는 올리지 않음)."""
+    with db.conn() as c:
+        names = _customer_names(c)
+    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(a.out).write_text(json.dumps(names, ensure_ascii=False), encoding="utf-8")
+    log.info("watchlist: %d names → %s (외부 서버: WATCHLIST_FILE=%s python run.py collect --dump ...)", len(names), a.out, a.out)
+
+
+def cmd_rescan_demand(a):
+    """(PC) 지난 기사 중 '교체 가능성' 후보를 다시 골라 판독 대기열로. 이미 투자 건으로 판독된 기사는 빼고,
+    사전필터에서 떨어졌거나 '관련 없음'으로 판독된 기사 중 징후 단어 + (거점 지역·거래처)가 있는 것만."""
+    with db.conn() as c:
+        extract.set_watchlist(_customer_names(c))
+        rows = c.execute("""select d.* from raw_documents d
+                            where d.fetched_at > now() - make_interval(days => %s)
+                              and d.source_type not in ('permit', 'manual')
+                              and not exists (select 1 from extractions e where e.document_id = d.id and e.is_relevant)
+                            order by d.published_at desc nulls last""", (a.days,)).fetchall()
+        pending = []
+        for d in rows:
+            if extract.demand_hit(d.get("title") or "", d.get("body") or ""):
+                d["id"] = str(d["id"]); pending.append(d)
+    md, jl = extract.write_pending(pending, OUT, name="pending-demand")
+    log.info("rescan-demand: %d docs checked → %d candidates → %s", len(rows), len(pending), md)
+
+
+def cmd_requests(a):
+    """웹 검색창의 '조사 요청' 목록 보기 / 답 달기.
+    python run.py requests                       → 아직 답 안 한 요청
+    python run.py requests --answer 12 --text "…" → 12번에 답(화면 검색 결과에 표시됨)"""
+    with db.conn() as c:
+        c.execute("""create table if not exists search_log (
+            id bigserial primary key, q text not null, q_norm text, n_results int, requested boolean not null default false,
+            note text, requested_by text, status text not null default 'open', answer text, answered_at timestamptz,
+            created_at timestamptz not null default now())""")
+        if a.answer:
+            c.execute("update search_log set answer = %s, status = 'done', answered_at = now() where id = %s", (a.text, a.answer))
+            row = c.execute("select q_norm from search_log where id = %s", (a.answer,)).fetchone()
+            if row:  # 같은 검색어의 다른 요청도 같은 답으로 닫는다
+                c.execute("update search_log set answer = %s, status = 'done', answered_at = now() where q_norm = %s and requested and status = 'open'", (a.text, row["q_norm"]))
+            log.info("answered #%s", a.answer)
+            return
+        rows = c.execute("""select id, q, note, requested_by, created_at from search_log where requested and status = 'open' order by created_at""").fetchall()
+        zero = c.execute("""select q_norm, min(q) q, count(*) n, max(created_at) last from search_log
+                            where not requested and n_results = 0 and created_at > now() - interval '30 days'
+                              and q_norm not in (select q_norm from search_log where requested)
+                            group by q_norm order by n desc, last desc limit 40""").fetchall()
+    print("== 조사 요청 (답 필요) ==")
+    for r in rows:
+        print(f"#{r['id']}  {r['q']}  | {r['note'] or ''}  | {r['requested_by'] or ''}  {r['created_at']:%m/%d %H:%M}")
+    print("== 결과 0건이었던 검색어 (최근 30일) ==")
+    for r in zero:
+        print(f"{r['q']}  ×{r['n']}  {r['last']:%m/%d %H:%M}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -446,6 +515,9 @@ def main():
     p = sub.add_parser("permits-fetch"); p.add_argument("--codes", default="out/bjdong.json"); p.add_argument("--out", default="out/permits.json"); p.add_argument("--days", type=int, default=365); p.set_defaults(fn=cmd_permits_fetch)
     p = sub.add_parser("permits-load"); p.add_argument("--file", default="out/permits.json"); p.set_defaults(fn=cmd_permits_load)
     p = sub.add_parser("permits-resolve"); p.set_defaults(fn=cmd_permits_resolve)
+    p = sub.add_parser("watchlist"); p.add_argument("--out", default="out/watchlist.json"); p.set_defaults(fn=cmd_watchlist)
+    p = sub.add_parser("rescan-demand"); p.add_argument("--days", type=int, default=120); p.set_defaults(fn=cmd_rescan_demand)
+    p = sub.add_parser("requests"); p.add_argument("--answer", type=int); p.add_argument("--text", default=""); p.set_defaults(fn=cmd_requests)
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     if not DATABASE_URL and a.cmd in ("collect", "ingest"):

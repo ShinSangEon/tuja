@@ -8,7 +8,9 @@ Bing 뉴스 RSS 는 원문 URL 을 그대로 준다.
 """
 from __future__ import annotations
 
+import json
 import logging
+import os
 import re
 from datetime import date, datetime
 from pathlib import Path
@@ -34,7 +36,7 @@ def load_sources(path: str | Path = Path(__file__).parent.parent / "sources.yaml
 
 
 def _matches(title: str, include: list[str]) -> bool:
-    return any(k.lower() in title.lower() for k in include)
+    return "*" in include or any(k.lower() in title.lower() for k in include)
 
 
 # 정부·공공 도메인은 직접 접속 금지 (2026-11-06 회사 공인 IP 가 정부 사이트에서 차단된 사고 이후).
@@ -229,10 +231,31 @@ def fill_bodies(docs: list[dict], max_resolve: int = 120, workers: int = 8) -> N
     log.info("fill_bodies: google %d/%d resolved, direct %d fetched", ok, len(goog), len(direct))
 
 
+# 이름만으로는 다른 회사·일반 단어와 섞이는 거래처 — 회사명 뉴스 감시에서 뺀다
+_WATCH_SKIP = {"ADD", "ATC", "CJ", "IR", "KC", "SH", "ICK", "대상", "바우", "우진", "엔투비", "서브원", "포스코", "기아", "현대자동차", "삼성SDI"}
+
+
+def watch_sources(names: list[str]) -> list[dict]:
+    """기존 거래처 회사명 뉴스 감시 (교체 가능성 징후용). 최근 7일, 제목 필터 없음 — 판단은 사전필터·판독에서."""
+    out = []
+    for i, n in enumerate(names):
+        n = (n or "").strip()
+        if len(n) < 3 or n in _WATCH_SKIP:
+            continue
+        q = quote(f'"{n}" when:7d')
+        out.append({"key": f"watch_{i}", "name": "GoogleNews", "type": "rss", "aggregator": "google", "enabled": True,
+                    "url": f"https://news.google.com/rss/search?q={q}&hl=ko&gl=KR&ceid=KR:ko", "include": ["*"]})
+    return out
+
+
 def fetch(since: date, group: str | None = None) -> list[dict]:
-    """group: 'news'(구글·Bing) | 'paper'(지방지 RSS) | 'gov'(산업부·정책브리핑 HTML) | None(전부)"""
+    """group: 'news'(구글·Bing) | 'paper'(지방지 RSS) | 'gov'(산업부·정책브리핑 HTML) | None(전부)
+    WATCHLIST_FILE 환경변수(거래처 이름 JSON 배열)가 있으면 거래처별 뉴스도 같이 받는다."""
     docs, seen = [], set()
     srcs = []
+    wl = os.getenv("WATCHLIST_FILE")
+    if wl and Path(wl).exists() and group in (None, "news"):
+        srcs += watch_sources(json.loads(Path(wl).read_text(encoding="utf-8")))
     for src in load_sources():
         if src.get("key", "").startswith("gov_") and not src.get("aggregator"):
             continue  # 정부 사이트 직접 수집은 영구 비활성 (IP 차단 사고)

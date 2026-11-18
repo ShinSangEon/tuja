@@ -1,8 +1,10 @@
 // 투자 레이더 공용 상수·포맷 (JS)
 
 export const STAGE_ORDER = ["disclosure", "mou", "permit", "construction", "completed"];
-export const STAGE_LABEL = { disclosure: "공시", mou: "투자협약", permit: "인허가", construction: "착공", completed: "준공" };
-export const EVENT_LABEL = { new_plant: "신공장", expansion: "증설", retrofit: "개조·스마트화", equipment: "설비투자", relocation: "이전", other: "기타" };
+export const STAGE_LABEL = { watch: "교체 가능성", disclosure: "공시", mou: "투자협약", permit: "인허가", construction: "착공", completed: "준공" };
+export const EVENT_LABEL = { new_plant: "신공장", expansion: "증설", retrofit: "개조·스마트화", equipment: "설비투자", relocation: "이전", demand: "교체 가능성", other: "기타" };
+// 단계 필터 칩: 교체 가능성(징후)은 투자 단계 앞에 따로
+export const STAGE_FILTERS = ["watch", "disclosure", "mou", "permit", "construction", "completed"];
 export const SIZE_LABEL = { S: "소규모 · 50억 미만", M: "중규모 · 50~500억", L: "대규모 · 500억 이상", U: "규모 미상" };
 export const SIZE_SHORT = { S: "소", M: "중", L: "대", U: "?" };
 export const CONTACT_STATUS = ["none", "planned", "contacted", "meeting", "quoted", "won", "lost"];
@@ -69,6 +71,7 @@ const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 /**
  * 마커 SVG (data URI). 원 안에 점수, 크기=규모, 색=우선순위, 테두리=등급(A 굵은 먹색 / B 가는 먹색 / C 점선).
+ * 교체 가능성(stage=watch)은 흰 바탕에 색 점선 고리 — 투자 발표가 아니라 '수요 징후'임을 구분.
  * 70점 이상은 회사명 라벨을 오른쪽에 붙인다. 반환: { src, width, height, offsetX, offsetY }
  */
 export const CUSTOMER_COLOR = "#2457C5"; // 기존 거래처(드라이어 납품 이력) = 파랑
@@ -82,6 +85,7 @@ export function markerImage(s, selected = false) {
   const strokeW = g === "A" ? 3 : 2;
   const dash = g === "C" ? ` stroke-dasharray="3 2"` : "";
   const ring = selected ? 8 : 0;
+  const watch = s.stage === "watch"; // 교체 가능성: 속 빈 점선 원
   const label = p === "hot" || isCust ? String(s.company_name).replace(/^\(주\)|^㈜|^주식회사\s*/, "").slice(0, 10) : "";
   const fontPx = d >= 30 ? 13 : d >= 25 ? 12 : 10;
   const labelW = label ? Math.min(150, 14 + label.length * 12.5) : 0;
@@ -90,8 +94,10 @@ export function markerImage(s, selected = false) {
   const cx = ring + 2 + d / 2, cy = H / 2;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   ${selected ? `<circle cx="${cx}" cy="${cy}" r="${d / 2 + ring - 1}" fill="${color}" fill-opacity="0.18" stroke="${color}" stroke-width="1.5"/>` : ""}
-  <circle cx="${cx}" cy="${cy}" r="${d / 2}" fill="${color}" stroke="#16211F" stroke-width="${strokeW}"${dash}/>
-  <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-family="Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" font-size="${fontPx}" font-weight="800" fill="#fff">${s.relevance_score}</text>
+  ${watch
+    ? `<circle cx="${cx}" cy="${cy}" r="${d / 2 - 1.5}" fill="#fff" stroke="${color}" stroke-width="4" stroke-dasharray="5 3"/>`
+    : `<circle cx="${cx}" cy="${cy}" r="${d / 2}" fill="${color}" stroke="#16211F" stroke-width="${strokeW}"${dash}/>`}
+  <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-family="Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" font-size="${fontPx}" font-weight="800" fill="${watch ? color : "#fff"}">${s.relevance_score}</text>
   ${label ? `<rect x="${cx + d / 2 + 3}" y="${cy - 11}" width="${labelW}" height="22" rx="4" fill="${isCust ? CUSTOMER_COLOR : "#16211F"}" fill-opacity="0.92"/>
   <text x="${cx + d / 2 + 10}" y="${cy}" dominant-baseline="central" font-family="Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" font-size="12" font-weight="700" fill="#fff">${esc(label)}</text>` : ""}
 </svg>`;
@@ -130,4 +136,12 @@ export function fmtPeriod(a, b) {
   if (b) return `~${b} 완료 예정`;
   if (a) return `${a} 시작`;
   return "";
+}
+
+/** 검색어·회사명 비교용 정규화: (주)·공백 제거, 한글 표기 그룹명 → 영문 (엘지→lg, 에스케이→sk …) */
+const KO_EN = [["에이치디", "hd"], ["에스케이", "sk"], ["엘지", "lg"], ["씨제이", "cj"], ["지에스", "gs"], ["케이티", "kt"]]; // collector validate.normalize_company 와 같은 방향
+export function normName(s) {
+  let n = String(s ?? "").replace(/\(주\)|㈜|주식회사|유한회사|\s+|·|ㆍ|-/g, "").toLowerCase();
+  for (const [ko, en] of KO_EN) if (n.startsWith(ko) && n.length > ko.length + 1) { n = en + n.slice(ko.length); break; }
+  return n;
 }

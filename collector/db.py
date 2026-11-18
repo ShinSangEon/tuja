@@ -234,7 +234,7 @@ def upsert_signal(c, sig: dict) -> str:
         sid = sig["_id"]
         if old:  # 단계·금액·등급이 바뀌면 '시스템' 활동으로 남긴다 (주간 보고 '지난주 대비 변화')
             from config import STAGE_ORDER  # noqa: PLC0415
-            labels = {"disclosure": "공시", "mou": "투자협약", "permit": "인허가", "construction": "착공", "completed": "준공"}
+            labels = {"watch": "교체 가능성", "disclosure": "공시", "mou": "투자협약", "permit": "인허가", "construction": "착공", "completed": "준공"}
             msgs = []
             if old["stage"] != vals.get("stage") and vals.get("stage") in STAGE_ORDER:
                 msgs.append(f"단계 {labels.get(old['stage'], old['stage'])} → {labels.get(vals['stage'], vals['stage'])}")
@@ -261,8 +261,9 @@ def purge_bodies(c, days: int = 90) -> int:
 
 
 def mark_stale(c) -> int:
-    return c.execute("""update signals set stale = true where not archived and stage in ('disclosure','mou')
-                        and last_seen_at < now() - interval '18 months' and not stale""").rowcount
+    return c.execute("""update signals set stale = true where not archived and not stale and (
+                          (stage in ('disclosure','mou') and last_seen_at < now() - interval '18 months')
+                          or (stage = 'watch' and last_seen_at < now() - interval '9 months'))""").rowcount
 
 
 def archive_completed(c) -> int:

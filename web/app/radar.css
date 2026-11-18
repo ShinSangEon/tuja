@@ -327,3 +327,42 @@
 
 .radar .co-rpt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
 .radar .co-rpt > .rpt-text, .radar .co-rpt > div, .radar .co-rpt > pre { flex-basis: 100%; }
+
+/* 교체 가능성(징후) */
+.radar .lg-pin.lg-watch { background: #fff; color: var(--watch); border: 3px dashed var(--watch); }
+.radar .stagebar.watch { gap: 8px; flex-wrap: wrap; }
+.radar .watch-pill { display: inline-flex; align-items: center; height: 20px; padding: 0 9px; border-radius: 999px; border: 1.5px dashed #0F7C86; color: #0F7C86; background: #E8F5F6; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.radar .watch-note { font-size: 11.5px; color: var(--ink-3); }
+.radar .stagebar.watch.compact .watch-pill { height: 16px; font-size: 10.5px; padding: 0 7px; }
+.radar .seg.stages button.st-watch { border-style: dashed; }
+.radar .seg.stages button.st-watch.on { background: #0F7C86; border-color: #0F7C86; color: #fff; }
+
+/* 검색 패널: 아는 정보 · 조사 요청 · 직접 등록 */
+.radar .lookup-tools { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+.radar .lookup-tools button { flex: 1 1 140px; padding: 8px 10px; border: 1.5px solid var(--ink); border-radius: 6px; background: var(--panel); color: var(--ink); font-weight: 700; font-size: 13px; cursor: pointer; }
+.radar .lookup-tools button.on, .radar .lookup-tools button:hover { background: var(--ink); color: #fff; }
+.radar .lk-sec { margin: 14px 0 0; }
+.radar .lk-sec h4 { margin: 0 0 6px; font-size: 12.5px; color: var(--ink-3); font-weight: 700; letter-spacing: .02em; }
+.radar .lk-known { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.radar .lk-known li { line-height: 1.5; }
+.radar .lk-known li small { display: block; color: var(--ink-3); font-size: 11.5px; }
+.radar .lk-known .muted, .radar .lk-req-a.muted { color: var(--ink-3); }
+.radar .lk-k { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 3px; background: var(--line-2); color: var(--ink-2); margin-right: 4px; }
+.radar .lk-reqs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.radar .lk-reqs li { border-left: 3px solid var(--watch); padding: 6px 10px; background: var(--watch-bg); border-radius: 0 4px 4px 0; font-size: 13px; }
+.radar .lk-reqs li.done { border-left-color: var(--ink); background: var(--line-2); }
+.radar .lk-req-q { color: var(--ink-2); font-size: 12px; }
+.radar .lk-req-a { margin: 4px 0 0; color: var(--ink); line-height: 1.5; white-space: pre-wrap; }
+.radar .lk-form { display: grid; gap: 6px; padding: 12px; margin: 0 0 12px; border: 1.5px solid var(--ink); border-radius: 8px; background: var(--panel); }
+.radar .lk-form-h { margin: 0 0 4px; font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+.radar .lk-form label, .radar .lk-form legend { font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.radar .lk-form input, .radar .lk-form select, .radar .lk-form textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 5px; font: inherit; font-size: 13px; background: #fff; color: var(--ink); }
+.radar .lk-form textarea { resize: vertical; }
+.radar .lk-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.radar .lk-form-row > div { display: grid; gap: 4px; min-width: 0; }
+.radar .lk-need { border: 0; padding: 0; margin: 2px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+.radar .lk-need label { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.radar .lk-need select { width: auto; }
+.radar .lk-form-act { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 4px; }
+.radar .lk-form input:focus-visible, .radar .lk-form select:focus-visible, .radar .lk-form textarea:focus-visible, .radar .lookup-tools button:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.radar .lk-form-act .link { white-space: nowrap; }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { TIER2_PRESS } from '@/lib/format';
+import { TIER2_PRESS, normName } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +10,8 @@ export const dynamic = 'force-dynamic';
  */
 const UA = { 'User-Agent': 'Mozilla/5.0 (compatible; GENEQ-InvestRadar/0.1)' };
 const INVEST_WORDS = '공장 OR 증설 OR 신설 OR 착공 OR 투자협약 OR 설비투자 OR 준공';
+// 교체 가능성 징후: 투자 발표가 없어도 장비 교체·증설 수요가 생길 만한 소식
+const DEMAND_WORDS = '가동률 OR 풀가동 OR 수주 OR 일감 OR 인수 OR 매각 OR 재가동 OR 설비 OR 교체 OR 증산 OR 신사업';
 
 function norm(s) {
     return String(s).replace(/\(주\)|㈜|주식회사|유한회사|\s+|·|ㆍ/g, '').toLowerCase();
@@ -42,14 +44,37 @@ export async function GET(req) {
 
     const result = { q, news: [], dart: [], corp: null, errors: [] };
 
-    // 1) 구글뉴스: 회사명 + 투자 키워드, 최근 1년
+    // 1) 구글뉴스: 회사명 + 투자 키워드, 회사명 + 교체 가능성 징후 키워드 — 최근 1년
     try {
-        const url = `https://news.google.com/rss/search?q=${encodeURIComponent(`"${q}" (${INVEST_WORDS}) when:1y`)}&hl=ko&gl=KR&ceid=KR:ko`;
-        const r = await fetch(url, { headers: UA, cache: 'no-store' });
-        result.news = rssItems(await r.text()).slice(0, 25);
+        const g = async (words, kind) => {
+            const url = `https://news.google.com/rss/search?q=${encodeURIComponent(`"${q}" (${words}) when:1y`)}&hl=ko&gl=KR&ceid=KR:ko`;
+            const r = await fetch(url, { headers: UA, cache: 'no-store' });
+            return rssItems(await r.text()).map((x) => ({ ...x, about: kind }));
+        };
+        const [inv, dem] = await Promise.all([g(INVEST_WORDS, 'invest'), g(DEMAND_WORDS, 'demand')]);
+        const seen = new Set();
+        result.news = [...inv.slice(0, 20), ...dem.slice(0, 15)].filter((x) => { const k = x.title.replace(/\s/g, ''); if (seen.has(k)) return false; seen.add(k); return true; });
     } catch (e) { result.errors.push(`뉴스: ${e.message}`); }
 
-    // 2) DART: 상장사면 코드 찾아 최근 1년 투자 관련 공시
+    // 2) 레이더 DB 가 이미 아는 것: 기존 거래처 여부, 등록공장, 건축허가
+    result.known = { customer: null, factories: [], permits: [] };
+    if (process.env.DATABASE_URL) {
+        try {
+            const p = await pool();
+            const n = norm(q), n2 = normName(q);
+            const cu = await p.query(`select name, sites, note from customers where name_norm = any($1) or lower(regexp_replace(name,'\\s','','g')) = any($1) or aliases && $1 limit 1`, [[n, n2]]);
+            result.known.customer = cu.rows[0] ?? null;
+            const fa = await p.query(`select company_raw, complex, products, address, sigungu from factories
+                                      where company_norm = any($1) or company_norm like $2 order by (company_norm = any($1)) desc, company_raw limit 12`, [[n, n2], `%${n}%`]);
+            result.known.factories = fa.rows;
+            const pm = await p.query(`select bld_nm, company_guess, arch_gb, main_purps, tot_area, pms_day, real_stcns_day, use_apr_day, plat_plc from permits
+                                      where replace(coalesce(bld_nm,''),' ','') ilike $1 or replace(coalesce(company_guess,''),' ','') ilike $1
+                                      order by pms_day desc nulls last limit 10`, [`%${q.replace(/\s/g, '')}%`]);
+            result.known.permits = pm.rows;
+        } catch (e) { result.errors.push(`DB: ${e.message}`); }
+    }
+
+    // 3) DART: 상장사면 코드 찾아 최근 1년 투자 관련 공시
     if (process.env.DATABASE_URL) {
         try {
             const p = await pool();

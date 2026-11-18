@@ -61,6 +61,8 @@ def size_class(amount_krw: int | None, floor_area_m2: float | None, event_type: 
         if floor_area_m2 < AREA_THRESHOLDS["M_MAX"]:
             return "M"
         return "L"
+    if stage == "watch" or event_type == "demand":
+        return "U"  # 교체 가능성: 규모를 알 수 없음
     if event_type == "new_plant" or stage == "mou":
         return "L"
     return "U"
@@ -114,6 +116,8 @@ def is_same_project(x: dict, y: dict) -> bool:
     # 건축허가 원장은 '허가일' 기준이라 뉴스보다 한참 앞서고, 뉴스의 '신공장'이 원장에는 기존 부지 '증축'으로 적힌다
     # — 같은 시군구의 같은 회사면 기간·유형이 달라도 같은 공사로 본다
     permit_pair = any(str(u.get("url") or "").startswith("permit://") for u in x.get("_sources", []) + y.get("_sources", [])) and x.get("sigungu") and x.get("sigungu") == y.get("sigungu")
+    if "demand" in (x["event_type"], y["event_type"]) and x["event_type"] != y["event_type"]:
+        return False  # 교체 가능성(징후)은 실제 투자 건과 섞지 않는다 — 같은 회사라도 따로 보여 준다
     if not _same_type(x["event_type"], y["event_type"]) and not (ax and ax == ay) and not permit_pair:  # 금액이 똑같으면 유형 표기만 다른 같은 건
         return False
     dx, dy = x.get("published_at"), y.get("published_at")

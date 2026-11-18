@@ -57,7 +57,7 @@ function FactoryCard({ f }) {
 
 export default function KakaoMap({ signals, selectedId, onSelect, focus, factories = [], permits = [], unknownPermits = [] }) {
   const appkey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY ?? "";
-  const [loading, error] = useKakaoLoader({ appkey, libraries: ["clusterer"] });
+  const [loading, error] = useKakaoLoader({ appkey, libraries: ["clusterer", "services"] });
   const located = useMemo(() => signals.filter((s) => s.lat != null && s.lng != null), [signals]);
   const [map, setMap] = useState(null);
   const [active, setActive] = useState(null); // 클릭한 건축허가/기존공장 카드

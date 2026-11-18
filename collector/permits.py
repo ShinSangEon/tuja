@@ -239,7 +239,7 @@ def refresh_for_signals(c, days: int = 365) -> int:
 # ── 건축허가 ↔ 신호 연동 ─────────────────────────────────
 _STRIP = re.compile(r"\(주\)|㈜|주식회사|\s|\(.*?\)")
 _NOISE = re.compile(r"(신축공사|증축공사|신축|증축|공사|공장동|공장|사옥|물류센터|물류창고|창고|제\d+공장|\d+공장|제\d+동|\d+동|[A-Z]-?\d*동|부지|현장|신관|본관|생산동|연구동|사무동)+$")
-_STAGE_RANK = {"disclosure": 0, "mou": 1, "permit": 2, "construction": 3, "completed": 4}
+_STAGE_RANK = {"watch": -1, "disclosure": 0, "mou": 1, "permit": 2, "construction": 3, "completed": 4}
 
 
 def _core(name: str | None) -> str:
@@ -432,7 +432,7 @@ def link_signals(c, log_activity: bool = True) -> dict:
     import json
     from psycopg.types.json import Jsonb
     promoted, created = 0, 0
-    sigs = c.execute("select id, company_name, company_norm, stage, bjdong_cd, sido from signals where not archived and bjdong_cd is not null").fetchall()
+    sigs = c.execute("select id, company_name, company_norm, stage, bjdong_cd, sido from signals where not archived and bjdong_cd is not null and stage <> 'watch'").fetchall()
     perms = c.execute("select * from permits where bld_nm is not null or company_guess is not null").fetchall()
     by_dong: dict = {}
     for p in perms:

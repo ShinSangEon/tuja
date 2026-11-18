@@ -45,6 +45,23 @@ export default function Page() {
     return () => ctl.abort();
   }, [query]);
 
+  // 검색 기록: 검색어를 멈추고 2초 지나면 한 번 남긴다 (결과 0건 검색어는 다음 업데이트 때 조사 대상)
+  useEffect(() => {
+    const q = filters.q.trim();
+    if (q.length < 2 || !data || loading) return;
+    const t = setTimeout(() => {
+      fetch("/api/search-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q, n: data.count ?? 0 }) }).catch(() => {});
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [filters.q, data, loading]);
+
+  function onManualCreated(sig) {
+    setLookup(null);
+    if (!sig) return;
+    setData((d) => (d ? { ...d, count: (d.count ?? 0) + 1, signals: [sig, ...d.signals] } : d));
+    setSelected(sig);
+  }
+
   const signals = data?.signals ?? [];
   const hot = signals.filter((s) => priority(s.relevance_score) === "hot").length;
   const bigSum = signals.reduce((a, s) => a + (s.amount_krw ?? 0), 0);
@@ -82,14 +99,14 @@ export default function Page() {
             ? <SignalDetail s={selected} onClose={() => setSelected(null)} onFactories={setFactories} onPermits={setPermits}
                 onSalesChange={(id, patch) => { setSelected((x) => (x && x.id === id ? { ...x, ...patch } : x)); setData((d) => (d ? { ...d, signals: d.signals.map((x) => (x.id === id ? { ...x, ...patch } : x)) } : d)); }} />
             : lookup
-              ? <><button className="back side-back" onClick={() => setLookup(null)}>← 목록</button><LookupPanel q={lookup} inDb={signals.length > 0} /></>
+              ? <><button className="back side-back" onClick={() => setLookup(null)}>← 목록</button><LookupPanel q={lookup} inDb={signals.length > 0} onCreated={onManualCreated} /></>
               : <>
                   {filters.q.length >= 2 && !loading && (
                     <div className="lookup-cta">
                       {signals.length === 0
-                        ? <><b>‘{filters.q}’</b> 은(는) 레이더에 없습니다.</>
+                        ? <><b>‘{filters.q}’</b> 은(는) 레이더 신호에 없습니다.</>
                         : <>레이더 안 결과 {signals.length}건.</>}
-                      <button className="link" onClick={() => setLookup(filters.q.trim())}>구글뉴스·DART에서 바로 찾기</button>
+                      <button className="link" onClick={() => setLookup(filters.q.trim())}>{signals.length === 0 ? "아는 정보 보기 · 조사 요청 · 직접 등록" : "뉴스·DART에서 더 찾기"}</button>
                     </div>
                   )}
                   <SignalList signals={signals} selectedId={null} onSelect={setSelected} loading={!data} />

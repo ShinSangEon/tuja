@@ -1,6 +1,6 @@
 "use client";
 
-import { SIDO_LIST, SIZE_SHORT, STAGE_LABEL, STAGE_ORDER, sidoName } from "@/lib/format";
+import { SIDO_LIST, SIZE_SHORT, STAGE_FILTERS, STAGE_LABEL, sidoName } from "@/lib/format";
 
 export const DEFAULT_FILTERS = { grades: ["A", "B"], sizes: ["L", "M", "U"], stages: [], sidos: [], minScore: 0, q: "", customer: false };
 
@@ -76,8 +76,8 @@ export default function FilterBar({ value, onChange, bySido = {}, unlocated = 0 
       <section className="rail-sec">
         <h3>단계</h3>
         <div className="seg stages">
-          {STAGE_ORDER.map((k) => (
-            <button key={k} className={value.stages.includes(k) ? "on" : ""} onClick={() => set({ stages: toggle(value.stages, k) })}>{STAGE_LABEL[k]}</button>
+          {STAGE_FILTERS.map((k) => (
+            <button key={k} className={`${value.stages.includes(k) ? "on" : ""} ${k === "watch" ? "st-watch" : ""}`} onClick={() => set({ stages: toggle(value.stages, k) })}>{STAGE_LABEL[k]}</button>
           ))}
         </div>
       </section>
@@ -88,6 +88,7 @@ export default function FilterBar({ value, onChange, bySido = {}, unlocated = 0 
         <h3>핀 읽는 법</h3>
         <div className="lg-row"><span className="lg-pin" style={{ background: "#D8321F" }}>85</span><span>빨강 70점+ 즉시 검토</span></div>
         <div className="lg-row"><span className="lg-pin" style={{ background: "#E09A12" }}>55</span><span>호박 40~69 모니터링</span></div>
+        <div className="lg-row"><span className="lg-pin lg-watch">60</span><span>점선 고리 = 교체 가능성 (투자 발표 전 징후)</span></div>
         <div className="lg-row"><span className="lg-pin" style={{ background: "#8E969B" }}>20</span><span>회색 40 미만</span></div>
         <div className="lg-row"><span className="lg-pin" style={{ background: "#2457C5" }}>75</span><span>파랑 = 기존 거래처(드라이어 납품 이력)</span></div>
         <div className="lg-row"><span className="lg-pin lg-l">대</span><span>핀 크기 = 투자 규모</span></div>

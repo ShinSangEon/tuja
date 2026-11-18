@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { normName } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,9 +45,10 @@ export async function GET(req) {
             if (sizes.length && !sizes.includes(s.size_class)) return false;
             if (s.relevance_score < minScore) return false;
         }
-        if (q) {
-            const hay = `${s.company_name} ${s.summary ?? ''} ${s.sector ?? ''} ${s.sigungu ?? ''} ${s.industrial_complex ?? ''}`.toLowerCase();
-            if (!hay.includes(q.toLowerCase())) return false;
+        if (q) { // 띄어쓰기·(주)·한글/영문 그룹명(엘지=LG, 에스케이=SK) 차이를 무시하고 찾는다
+            const hay = `${s.company_name} ${s.company_group ?? ''} ${s.customer_name ?? ''} ${s.summary ?? ''} ${s.sector ?? ''} ${s.sido ?? ''} ${s.sigungu ?? ''} ${s.industrial_complex ?? ''}`.toLowerCase();
+            const hayN = `${normName(s.company_name)} ${normName(s.customer_name)} ${hay.replace(/\s+/g, '')}`; // 이름은 정규화, 나머지는 띄어쓰기만 무시
+            if (!hay.includes(q.toLowerCase()) && !hayN.includes(normName(q))) return false;
         }
         return true;
     });

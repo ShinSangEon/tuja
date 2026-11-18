@@ -12,7 +12,7 @@ async function load(days) {
   const p = globalThis.__radarPool;
   const num = (r) => ({ ...r, amount_krw: r.amount_krw == null ? null : Number(r.amount_krw) });
   const q = (sql, args) => p.query(sql, args).then((r) => r.rows).catch(() => []);
-  const [all, fresh, docs, permits, inProgress, matchedPermits, systemChanges, unknownPermits] = await Promise.all([
+  const [all, fresh, docs, permits, inProgress, matchedPermits, systemChanges, unknownPermits, requests] = await Promise.all([
     q(`select * from v_signals_map where size_class <> 'S' order by relevance_score desc, amount_krw desc nulls last`),
     q(`select * from v_signals_map where first_seen_at > now() - ($1 || ' days')::interval and size_class <> 'S' order by relevance_score desc`, [String(days)]),
     q(`select count(*)::int as n, count(*) filter (where fetched_at > now() - ($1 || ' days')::interval)::int as recent from raw_documents`, [String(days)]),
@@ -35,9 +35,11 @@ async function load(days) {
     // 회사 미확인 대형 공사: 허가 원장에 회사명이 없고 지도 조회로도 못 찾은 1만㎡+ 미준공 건
     q(`select id, plat_plc, arch_gb, main_purps, tot_area::float as tot_area, pms_day, stcns_sched_day, real_stcns_day, guess_cands, lat, lng
          from permits where guess_src = 'none' and coalesce(use_apr_day,'') = '' and pms_day >= to_char(now() - interval '730 days', 'YYYYMMDD')
-         order by tot_area desc limit 20`)
+         order by tot_area desc limit 20`),
+    // 검색창 조사 요청 (search_log 테이블이 아직 없으면 빈 목록)
+    q(`select id, q, note, requested_by, status, answer, created_at from search_log where requested order by (status = 'open') desc, created_at desc limit 20`)
   ]);
-  return { all: all.map(num), fresh: fresh.map(num), docs: docs[0] ?? { n: 0, recent: 0 }, permits, inProgress, matchedPermits, systemChanges, unknownPermits };
+  return { all: all.map(num), fresh: fresh.map(num), docs: docs[0] ?? { n: 0, recent: 0 }, permits, inProgress, matchedPermits, systemChanges, unknownPermits, requests };
 }
 
 const fmtDate = (d) => { const x = new Date(d); return `${x.getFullYear()}.${String(x.getMonth() + 1).padStart(2, "0")}.${String(x.getDate()).padStart(2, "0")}`; };
@@ -70,7 +72,8 @@ export default async function Report({ searchParams }) {
   const today = new Date();
   if (!data) return <main className="rpt-page"><h1>보고서</h1><p>DB 연결이 없어 보고서를 만들 수 없습니다.</p></main>;
 
-  const { all, fresh, docs, permits, inProgress, matchedPermits, systemChanges, unknownPermits = [] } = data;
+  const { all, fresh, docs, permits, inProgress, matchedPermits, systemChanges, unknownPermits = [], requests = [] } = data;
+  const watch = all.filter((s) => s.stage === "watch");
   const hitBySignal = {};
   for (const m of matchedPermits) if (!hitBySignal[m.signal_id] || m.real_stcns_day) hitBySignal[m.signal_id] = m;
   const hot = all.filter((s) => priority(s.relevance_score) === "hot");
@@ -172,6 +175,29 @@ export default async function Report({ searchParams }) {
           </table>
         )}
       </section>
+
+      {watch.length > 0 && (
+        <section>
+          <h2>교체 가능성 <small>투자 발표는 없지만 압축기·드라이어 교체나 증설 수요가 생길 만한 곳 · 기존 거래처 먼저</small></h2>
+          <table className="rpt-table">
+            <thead><tr><th>회사</th><th>지역 · 거점</th><th>징후</th><th>왜 수요가 생기나</th><th className="num">점수</th></tr></thead>
+            <tbody>
+              {[...watch].sort((a, b) => (!!b.customer_name - !!a.customer_name) || (b.relevance_score - a.relevance_score)).slice(0, 15).map((s) => {
+                const site = nearestSite(s.lat, s.lng);
+                return (
+                  <tr key={s.id} className={s.customer_name ? "is-cust" : ""}>
+                    <td><b>{s.company_name}</b>{s.customer_name ? <span className="cust-tag">고객</span> : null}</td>
+                    <td>{sidoName(s.sido)} {s.sigungu ?? ""}{site ? <><br /><small>{site.name} {site.km}km</small></> : null}</td>
+                    <td>{s.summary}</td>
+                    <td><small>{s.purpose ?? s.need_rationale ?? ""}</small></td>
+                    <td className="num">{s.relevance_score}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       <section className="rpt-two">
         <div>
@@ -315,6 +341,25 @@ export default async function Report({ searchParams }) {
             </tbody>
           </table>
           <p className="muted small">공개 허가 데이터에는 건축주 이름이 없어 건물명 칸과 지도 업체 정보로 회사를 추정합니다. 둘 다 안 나온 건이 이 목록입니다. 현장 공사 안내판에서 건축주·시공사를 확인하면 영업 대상이 됩니다.</p>
+        </section>
+      )}
+
+      {requests.length > 0 && (
+        <section>
+          <h2>조사 요청 <small>검색창에서 '레이더에 없음'으로 나와 팀원이 요청한 회사 · 다음 업데이트 때 조사해 답을 단다</small></h2>
+          <table className="rpt-table">
+            <thead><tr><th>검색어</th><th>요청</th><th>상태</th><th>답</th></tr></thead>
+            <tbody>
+              {requests.map((r) => (
+                <tr key={r.id}>
+                  <td><b>{r.q}</b></td>
+                  <td><small>{r.requested_by ?? ""} · {fmtDate(r.created_at)}</small>{r.note ? <><br />{r.note}</> : null}</td>
+                  <td>{r.status === "done" ? "답변 완료" : "조사 대기"}</td>
+                  <td>{r.answer ?? "–"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 

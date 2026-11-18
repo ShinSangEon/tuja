@@ -7,6 +7,9 @@ import { estimateUtility, CONTACT_LABEL, CONTACT_STATUS, KIND_LABEL, EVENT_LABEL
 
 /** 5단계 진행바 — 공시→협약→인허가→착공→준공 (진짜 순서라서 진행바) */
 export function StageBar({ stage, compact = false }) {
+  if (stage === "watch") {
+    return <div className={`stagebar watch ${compact ? "compact" : ""}`} aria-label="교체 가능성"><span className="watch-pill">교체 가능성</span>{compact ? null : <span className="watch-note">투자 발표 전 · 장비 교체·증설 수요 징후</span>}</div>;
+  }
   const idx = stageIndex(stage);
   return (
     <div className={`stagebar ${compact ? "compact" : ""}`} aria-label={`단계 ${STAGE_LABEL[stage]}`}>
@@ -335,8 +338,8 @@ export function SignalDetail({ s, onClose, onBack, onFactories, onPermits, onSal
         <ul className="sources">
           {(s.sources ?? []).slice(0, 12).map((src, i) => (
             <li key={i}>
-              <a href={src.url?.startsWith("permit://") ? "https://www.hub.go.kr" : src.url} target="_blank" rel="noreferrer">
-                <span className={`tier t${src.tier}`}>{src.url?.startsWith("permit://") ? "원장" : src.tier === 1 ? "공식" : src.tier === 2 ? "주요지" : "기타"}</span>
+              <a href={src.url?.startsWith("permit://") ? "https://www.hub.go.kr" : src.url?.startsWith("manual://") ? undefined : src.url} target="_blank" rel="noreferrer">
+                <span className={`tier t${src.tier}`}>{src.url?.startsWith("permit://") ? "원장" : src.url?.startsWith("manual://") ? "영업" : src.tier === 1 ? "공식" : src.tier === 2 ? "주요지" : "기타"}</span>
                 <span className="src-name">{src.source ?? ""}</span>
                 <span className="src-title">{src.title ?? src.url}</span>
                 <span className="src-date">{fmtDate(src.published_at)}</span>
